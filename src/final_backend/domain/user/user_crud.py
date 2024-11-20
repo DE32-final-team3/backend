@@ -2,7 +2,8 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from domain.user.user_schema import UserCreate
 from models import User
-
+import secrets
+import string
 
 # bcrypt 알고리즘을 사용하여 비밀번호를 암호화
 # pwd_context 객체를 생성하고 pwd_context 객체를 사용하여 비밀번호를 암호화하여 저장
@@ -33,12 +34,12 @@ def get_existing_user(db: Session, user_create: UserCreate):
     )
 
 
-def get_user(db: Session, username: str):
-    return db.query(User).filter(User.username == username).first()
-
-
-def delete_user(db: Session, username: str):
-    user = db.query(User).filter(User.username == username).first()
+def delete_user(db: Session, username: str, password: str):
+    user = (
+        db.query(User)
+        .filter(User.username == username and User.password == password)
+        .first()
+    )
     if user:
         db.delete(user)
         db.commit()
@@ -46,3 +47,24 @@ def delete_user(db: Session, username: str):
         return {"유저" "" f'"{username}" 삭제 완료.'}
     else:
         print("Log: 유저" "" f'"{username}"를 찾을 수 없습니다.')
+
+
+def get_user(db: Session, username: str):
+    return db.query(User).filter(User.username == username).first()
+
+
+def update_user_info(db: Session, user: User, updated_data: dict):
+    for key, value in updated_data.items():
+        if key == "password" and value is not None:
+            value = pwd_context.hash(value)
+
+        if hasattr(user, key) and value is not None:
+            setattr(user, key, value)
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+def generate_temporary_password(length=8):
+    characters = string.ascii_letters + string.digits  # 영문 대소문자 + 숫자
+    return "".join(secrets.choice(characters) for _ in range(length))

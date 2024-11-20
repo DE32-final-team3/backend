@@ -1,16 +1,4 @@
-from sqlalchemy import (
-    Column,
-    Integer,
-    String,
-    Boolean,
-    Text,
-    DateTime,
-    ForeignKey,
-    Table,
-    text,
-    TIMESTAMP,
-)
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from database import Base
 from jigutime import jigu
 

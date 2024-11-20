@@ -20,3 +20,21 @@ class UserCreate(BaseModel):
         if "password" in info.data and v != info.data["password"]:
             raise ValueError("비밀번호가 일치하지 않습니다")
         return v
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    username: str
+
+
+class UserUpdate(BaseModel):
+    username: str = None
+    password: str = None
+    email: EmailStr = None
+
+    @field_validator("username", "password", "email", check_fields=False)
+    def not_empty(cls, v):
+        if v and not v.strip():
+            raise ValueError("빈 값은 허용되지 않습니다.")
+        return v

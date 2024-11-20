@@ -6,7 +6,8 @@ from sqlalchemy.orm import sessionmaker  # DB와 상호작용 하는 세션 생�
 
 # Database 접속 주소
 DATABASE_URL = "mariadb+pymysql://root:1234@127.0.0.1:3307/userdb"
-
+# 3.36.90.141
+# 172.31.2.218
 # DB와 연결을 관리하는 엔진 객체 생성
 engine = create_engine(DATABASE_URL)
 

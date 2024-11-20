@@ -1,8 +1,5 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-from starlette.responses import FileResponse
-from starlette.staticfiles import StaticFiles
-import models
 from domain.user import user_router
 
 app = FastAPI()
