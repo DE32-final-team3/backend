@@ -3,16 +3,22 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from starlette import status
 from datetime import timedelta, datetime
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
-from src.final_backend.user_crud import get_user, pwd_context
 from passlib.context import CryptContext
-from database import get_db
-from src.final_backend import user_crud, user_schema
 import secrets, pytz
+from src.final_backend.database import get_db
+from src.final_backend import user_crud, user_schema
 from src.final_backend.user_schema import UserUpdate
-from fastapi.security import OAuth2PasswordBearer
 from src.final_backend.models import User
+from src.final_backend.user_crud import (
+    get_user,
+    pwd_context,
+    send_reset_email,
+    update_user_info,
+    generate_temporary_password,
+)
+
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
 router = APIRouter(
@@ -136,3 +142,33 @@ def update_user_info(
             detail="Failed to update user information.",
         )
     return {"message": "회원정보 변경 완료", updated_user.username: updated_user}
+
+
+@router.post("/reset-password-request")
+def reset_password_request(username: str, email: str, db: Session = Depends(get_db)):
+    # username만으로 사용자 확인
+    user_by_username = db.query(User).filter(User.username == username).first()
+    if not user_by_username:
+        raise HTTPException(status_code=404, detail="해당 아이디를 찾을 수 없습니다.")
+
+    # email만으로 사용자 확인
+    user_by_email = db.query(User).filter(User.email == email).first()
+    if not user_by_email:
+        raise HTTPException(
+            status_code=404, detail="해당 이메일로 가입된 유저가 없습니다."
+        )
+    # username과 email로 사용자 확인
+    user = db.query(User).filter(User.username == username, User.email == email).first()
+    if not user:
+        raise HTTPException(
+            status_code=404, detail="아이디와 이메일이 일치하지 않습니다."
+        )
+
+    # 임시 비밀번호 생성
+    temporary_password = generate_temporary_password()
+
+    # 이메일로 임시 비밀번호 전송
+    send_reset_email(email, f"임시 비밀번호: {temporary_password}")
+    return {
+        "message": f"임시 비밀번호가 이메일로 전송되었습니다. 로그인 후 비밀번호를 변경하세요."
+    }

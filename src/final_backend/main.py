@@ -1,8 +1,11 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 from src.final_backend import user_router
+from src.final_backend.database import create_tables
 
 app = FastAPI()
+
+create_tables()
 
 # * = 모든 도메인 요청 허용
 origins = ["*"]
