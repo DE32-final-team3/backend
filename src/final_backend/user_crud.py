@@ -1,6 +1,6 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from user.user_schema import UserCreate
+from src.final_backend.user_schema import UserCreate
 from models import User
 import secrets
 import string
