@@ -1,5 +1,5 @@
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
-from database import Base
+from src.final_backend.database import Base
 from jigutime import jigu
 
 

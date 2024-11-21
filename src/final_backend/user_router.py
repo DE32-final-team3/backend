@@ -12,7 +12,7 @@ from src.final_backend import user_crud, user_schema
 import secrets, pytz
 from src.final_backend.user_schema import UserUpdate
 from fastapi.security import OAuth2PasswordBearer
-from models import User
+from src.final_backend.models import User
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
 router = APIRouter(
