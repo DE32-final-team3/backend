@@ -5,13 +5,12 @@ from starlette import status
 from datetime import timedelta, datetime
 from fastapi.security import OAuth2PasswordRequestForm
 from jose import jwt, JWTError
-from domain.user.user_crud import get_user, pwd_context
+from user.user_crud import get_user, pwd_context
 from passlib.context import CryptContext
 from database import get_db
-from domain.user import user_crud, user_schema
-import secrets, pytz, os, requests
-
-from domain.user.user_schema import UserUpdate
+from user import user_crud, user_schema
+import secrets, pytz
+from user.user_schema import UserUpdate
 from fastapi.security import OAuth2PasswordBearer
 from models import User
 
