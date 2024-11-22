@@ -1,13 +1,16 @@
-from sqlalchemy import Column, Integer, String, DateTime, Boolean
+from sqlalchemy import Column, String, DateTime
 from src.final_backend.database import Base
 from jigutime import jigu
+import uuid
 
 
 # Base를 상속받아 User 클래스 생성
 class User(Base):
     __tablename__ = "user"
-    num = Column(Integer, nullable=False, primary_key=True, autoincrement=True)
-    username = Column(String(50), unique=True, nullable=False, index=True)
+    ID = Column(
+        String(36), primary_key=True, default=lambda: str(uuid.uuid4()), nullable=False
+    )
+    email = Column(String(50), unique=True, nullable=False, index=True)
+    nickname = Column(String(16), unique=True, nullable=False, index=True)
     password = Column(String(100), nullable=False)
-    email = Column(String(100), unique=True, nullable=False, index=True)
     create_at = Column(DateTime(timezone=True), default=jigu.now())

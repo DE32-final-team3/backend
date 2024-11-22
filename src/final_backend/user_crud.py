@@ -2,8 +2,10 @@ from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from datetime import datetime, timedelta
 from jose import jwt
+from bcrypt import checkpw
 from src.final_backend.user_schema import UserCreate
 from src.final_backend.models import User
+
 
 # bcrypt 알고리즘을 사용하여 비밀번호를 암호화
 # pwd_context 객체를 생성하고 pwd_context 객체를 사용하여 비밀번호를 암호화하여 저장
@@ -13,44 +15,41 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 def create_user(db: Session, user_create: UserCreate):
     # User 모델을 사용하여 사용자 객체 생성
     db_user = User(
-        username=user_create.username,
+        nickname=user_create.nickname,
         password=pwd_context.hash(user_create.password),
         email=user_create.email,
     )
     db.add(db_user)
     db.commit()
-    return {"유저" " " f"'{db_user.username}' 생성 완료."}
+    return {"유저" " " f"'{db_user.nickname}' 생성 완료."}
 
 
 def get_existing_user(db: Session, user_create: UserCreate):
     return (
         db.query(User)  # User 모델을 사용하여 DB에서 사용자 데이터를 조회
         .filter(
-            # 조건을 사용하여 DB에서 주어진 이름이나 이메을과 일치하는 사용자를 찾음
-            (User.username == user_create.username)
-            | (User.email == user_create.email)
+            # 조건을 사용하여 DB에서 주어진 이름이나 이메일과 일치하는 사용자를 찾음
+            (User.email == user_create.email)
+            | (User.nickname == user_create.nickname)
         )
         .first()  # 조건에 맞는 첫 번째 결과 반환
     )
 
 
-def delete_user(db: Session, username: str, password: str):
-    user = (
-        db.query(User)
-        .filter(User.username == username and User.password == password)
-        .first()
-    )
-    if user:
+def delete_user(db: Session, email: str, password: str):
+    user = db.query(User).filter(User.email == email).first()
+    if user and checkpw(password.encode(), user.password.encode()):
         db.delete(user)
         db.commit()
-        print("Log: 유저" "" f'"{username}" 삭제 완료.')
-        return {"유저" "" f'"{username}" 삭제 완료.'}
+        print("Log: 유저" "" f'"{email}" 삭제 완료.')
+        return {"유저" "" f'"{email}" 삭제 완료.'}
     else:
-        print("Log: 유저" "" f'"{username}"를 찾을 수 없습니다.')
+        print("Log: 유저" "" f'"{email}"를 찾을 수 없습니다.')
+        return None
 
 
-def get_user(db: Session, username: str):
-    return db.query(User).filter(User.username == username).first()
+def get_user(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
 
 
 def update_user_info(db: Session, user: User, updated_data: dict):
@@ -77,7 +76,7 @@ def generate_temporary_password(db, user, length=8):
     temporary_password = "".join(secrets.choice(characters) for _ in range(length))
 
     # 암호화하여 DB에 저장
-    user.password = pwd_context.hash(temporary_password)
+    User.password = pwd_context.hash(temporary_password)
     db.commit()
     db.refresh(user)
 

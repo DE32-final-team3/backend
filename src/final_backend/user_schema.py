@@ -2,14 +2,16 @@ from pydantic import BaseModel, EmailStr, field_validator
 from pydantic_core.core_schema import FieldValidationInfo
 
 
+# 사용자 생성 시 필요한 데이터 정의
 class UserCreate(BaseModel):
-    num: int
-    username: str
+    ID: str
+    email: EmailStr
+    nickname: str
     password: str
     password2: str
-    email: EmailStr
 
-    @field_validator("username", "email", "password", check_fields=False)
+    # 유효성 검증
+    @field_validator("nickname", "email", "password", check_fields=False)
     def not_empty(cls, v):
         if not v or not v.strip():
             raise ValueError("빈 값은 허용되지 않습니다.")
@@ -25,15 +27,14 @@ class UserCreate(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str
-    username: str
+    email: str
 
 
 class UserUpdate(BaseModel):
-    username: str = None
+    nickname: str = None
     password: str = None
-    email: EmailStr = None
 
-    @field_validator("username", "password", "email", check_fields=False)
+    @field_validator("nickname", "password", check_fields=False)
     def not_empty(cls, v):
         if v and not v.strip():
             raise ValueError("빈 값은 허용되지 않습니다.")

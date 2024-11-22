@@ -7,6 +7,7 @@ from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 import secrets, pytz
+from pydantic import EmailStr, BaseModel
 from src.final_backend.database import get_db
 from src.final_backend import user_crud, user_schema
 from src.final_backend.user_schema import UserUpdate
@@ -33,6 +34,11 @@ SECRET_KEY = secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 
 
+class OAuth2PasswordRequestFormWithEmail(BaseModel):
+    email: str
+    password: str
+
+
 @router.post("/create", status_code=status.HTTP_200_OK)
 def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
     # DB에서 기존 사용자가 있는지 확인
@@ -44,21 +50,19 @@ def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_
         )
     # def create_user 호출하여 새로운 사용자 생성
     create = user_crud.create_user(db=db, user_create=_user_create)
-    user_name = _user_create.username
+    user_name = _user_create.nickname
     print(f"새로운 유저 '{user_name}' 생성 완료")
     return create
 
 
 @router.delete("/delete", status_code=status.HTTP_200_OK)
-def user_delete(
-    username: str = None, password: str = None, db: Session = Depends(get_db)
-):
-    delete_result = user_crud.delete_user(db, username=username, password=password)
+def user_delete(email: str = None, password: str = None, db: Session = Depends(get_db)):
+    delete_result = user_crud.delete_user(db, email=email, password=password)
 
     if delete_result is None:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"알림": "Username을 찾을 수 없습니다."},
+            content={"알림": "유저를 찾을 수 없습니다."},
         )
 
     if "error" in delete_result:
@@ -69,10 +73,11 @@ def user_delete(
 
 
 @router.post("/login", response_model=user_schema.Token)
-def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+def login(
+    form_data: OAuth2PasswordRequestFormWithEmail = Depends(),
+    db: Session = Depends(get_db),
 ):
-    user = user_crud.get_user(db, form_data.username)
+    user = user_crud.get_user(db, form_data.email)
     if not user:
         print("일치하지 않은 아이디 입니다.")
         raise HTTPException(
@@ -90,15 +95,15 @@ def login_for_access_token(
     KST = pytz.timezone("Asia/Seoul")
     # access token 생성
     data = {
-        "sub": user.username,
+        "sub": user.email,
         "exp": datetime.now(KST) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
     }
     access_token = jwt.encode(data, SECRET_KEY, algorithm=ALGORITHM)
-    print(f"'{user.username}' 로그인 성공")
+    print(f"'{user.nickname}' 로그인 성공")
     return {
         "access_token": access_token,
         "token_type": "bearer",
-        "username": user.username,
+        "email": user.email,
     }
 
 
@@ -115,13 +120,13 @@ def get_current_user(
     )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
+        ID: str = payload.get("sub")
+        if ID is None:
             raise credentials_exception
     except JWTError:
         raise credentials_exception
 
-    user = user_crud.get_user(db, username=username)
+    user = user_crud.get_user(db, ID == ID)
     if user is None:
         raise credentials_exception
     return user
@@ -141,14 +146,14 @@ def update_user_info(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to update user information.",
         )
-    return {"message": "회원정보 변경 완료", updated_user.username: updated_user}
+    return {"message": "회원정보 변경 완료", updated_user.nickname: updated_user}
 
 
 @router.post("/reset-password-request")
-def reset_password_request(username: str, email: str, db: Session = Depends(get_db)):
-    # username만으로 사용자 확인
-    user_by_username = db.query(User).filter(User.username == username).first()
-    if not user_by_username:
+def reset_password_request(nickname: str, email: str, db: Session = Depends(get_db)):
+    # nickname만으로 사용자 확인
+    user_by_nickname = db.query(User).filter(User.nickname == nickname).first()
+    if not user_by_nickname:
         raise HTTPException(status_code=404, detail="해당 아이디를 찾을 수 없습니다.")
 
     # email만으로 사용자 확인
@@ -157,15 +162,15 @@ def reset_password_request(username: str, email: str, db: Session = Depends(get_
         raise HTTPException(
             status_code=404, detail="해당 이메일로 가입된 유저가 없습니다."
         )
-    # username과 email로 사용자 확인
-    user = db.query(User).filter(User.username == username, User.email == email).first()
+    # nickname과 email로 사용자 확인
+    user = db.query(User).filter(User.nickname == nickname, User.email == email).first()
     if not user:
         raise HTTPException(
             status_code=404, detail="아이디와 이메일이 일치하지 않습니다."
         )
 
     # 임시 비밀번호 생성
-    temporary_password = generate_temporary_password()
+    temporary_password = generate_temporary_password(user.email, user.nickname)
 
     # 이메일로 임시 비밀번호 전송
     send_reset_email(email, f"임시 비밀번호: {temporary_password}")

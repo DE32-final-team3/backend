@@ -5,7 +5,7 @@ from sqlalchemy.ext.declarative import (
 from sqlalchemy.orm import sessionmaker  # DB와 상호작용 하는 세션 생성 모듈
 
 # Database 접속 주소
-DATABASE_URL = "mariadb+pymysql://root:1234@127.0.0.1:3307/userdb"
+DATABASE_URL = "mariadb+pymysql://root:1234@127.0.0.1:3307/tunetalk"
 # DB와 연결을 관리하는 엔진 객체 생성
 engine = create_engine(DATABASE_URL)
 # 데이터베이스와 통신할 때 필요한 세션을 생성.
