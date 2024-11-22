@@ -18,10 +18,6 @@ from src.final_backend.user_crud import (
     generate_temporary_password,
     get_user,
 )
-from fastapi.security import OAuth2
-from fastapi.openapi.models import OAuthFlows as OAuthFlowsModel
-from fastapi.openapi.models import OAuthFlowPassword
-from typing import Optional
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
 router = APIRouter(
@@ -118,7 +114,7 @@ def login(form_data: OAuth2Password = Depends(), db: Session = Depends(get_db)):
     }
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/user/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
 
 
 @router.get("/validate")
