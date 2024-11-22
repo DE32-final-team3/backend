@@ -23,12 +23,12 @@ def create_user(db: Session, user_create: UserCreate):
     return {"유저" " " f"'{db_user.nickname}' 생성 완료."}
 
 
-def get_existing_user(db: Session, email: str, nickname: str):
-    return (
-        db.query(User)
-        .filter((User.email == email) | (User.nickname == nickname))
-        .first()
-    )
+def get_existing_email(db: Session, email: str):
+    return db.query(User).filter(User.email == email).first()
+
+
+def get_existing_name(db: Session, nickname: str):
+    return db.query(User).filter(User.nickname == nickname).first()
 
 
 def delete_user(db: Session, email: str, password: str):
