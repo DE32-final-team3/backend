@@ -1,11 +1,9 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from datetime import datetime, timedelta
-from jose import jwt
 from bcrypt import checkpw
 from src.final_backend.user_schema import UserCreate
 from src.final_backend.models import User
-
+from jigutime import jigu
 
 # bcrypt 알고리즘을 사용하여 비밀번호를 암호화
 # pwd_context 객체를 생성하고 pwd_context 객체를 사용하여 비밀번호를 암호화하여 저장
@@ -18,21 +16,18 @@ def create_user(db: Session, user_create: UserCreate):
         nickname=user_create.nickname,
         password=pwd_context.hash(user_create.password),
         email=user_create.email,
+        create_at=jigu.now(),
     )
     db.add(db_user)
     db.commit()
     return {"유저" " " f"'{db_user.nickname}' 생성 완료."}
 
 
-def get_existing_user(db: Session, user_create: UserCreate):
+def get_existing_user(db: Session, email: str, nickname: str):
     return (
-        db.query(User)  # User 모델을 사용하여 DB에서 사용자 데이터를 조회
-        .filter(
-            # 조건을 사용하여 DB에서 주어진 이름이나 이메일과 일치하는 사용자를 찾음
-            (User.email == user_create.email)
-            | (User.nickname == user_create.nickname)
-        )
-        .first()  # 조건에 맞는 첫 번째 결과 반환
+        db.query(User)
+        .filter((User.email == email) | (User.nickname == nickname))
+        .first()
     )
 
 
