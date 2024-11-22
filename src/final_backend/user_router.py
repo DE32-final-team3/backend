@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException, Depends, Request
+from fastapi import APIRouter, HTTPException, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from starlette import status
 from datetime import timedelta, datetime
-from fastapi.security import OAuth2PasswordRequestForm, OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 import secrets, pytz
@@ -13,10 +13,8 @@ from src.final_backend import user_crud, user_schema
 from src.final_backend.user_schema import UserUpdate
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
-    get_user,
     pwd_context,
     send_reset_email,
-    update_user_info,
     generate_temporary_password,
 )
 
@@ -34,25 +32,27 @@ SECRET_KEY = secrets.token_urlsafe(32)
 ALGORITHM = "HS256"
 
 
-class OAuth2PasswordRequestFormWithEmail(BaseModel):
+class OAuth2Password(BaseModel):
     email: str
     password: str
 
 
 @router.post("/create", status_code=status.HTTP_200_OK)
 def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
-    # DB에서 기존 사용자가 있는지 확인
-    user = user_crud.get_existing_user(db, user_create=_user_create)
-    if user:
-        print("이미 존재하는 사용자입니다.")
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 사용자입니다."
-        )
-    # def create_user 호출하여 새로운 사용자 생성
     create = user_crud.create_user(db=db, user_create=_user_create)
     user_name = _user_create.nickname
     print(f"새로운 유저 '{user_name}' 생성 완료")
     return create
+
+
+@router.post("/usercheck", status_code=status.HTTP_200_OK)
+def usercheck(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
+    user = user_crud.get_existing_user(db, _user_create.email, _user_create.nickname)
+    if user:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 사용자입니다."
+        )
+    return {"message": "사용자가 존재하지 않습니다."}
 
 
 @router.delete("/delete", status_code=status.HTTP_200_OK)
@@ -74,7 +74,7 @@ def user_delete(email: str = None, password: str = None, db: Session = Depends(g
 
 @router.post("/login", response_model=user_schema.Token)
 def login(
-    form_data: OAuth2PasswordRequestFormWithEmail = Depends(),
+    form_data: OAuth2Password = Depends(),
     db: Session = Depends(get_db),
 ):
     user = user_crud.get_user(db, form_data.email)
