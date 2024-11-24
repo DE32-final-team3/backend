@@ -1,5 +1,5 @@
-from sqlalchemy import Column, String, DateTime
 from src.final_backend.database import Base
+from sqlalchemy import Column, String, DateTime
 from jigutime import jigu
 import uuid
 
