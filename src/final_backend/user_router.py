@@ -3,14 +3,14 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.orm import Session
 from starlette import status
 from datetime import timedelta, datetime
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-import secrets, pytz
+import pytz, os
 from pydantic import EmailStr, BaseModel
 from src.final_backend.database import get_db
 from src.final_backend import user_crud, user_schema
-from src.final_backend.user_schema import UserUpdate, Token
+from src.final_backend.user_schema import UserCreate, UserUpdate, Token
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
     pwd_context,
@@ -18,6 +18,7 @@ from src.final_backend.user_crud import (
     generate_temporary_password,
     get_user,
 )
+from dotenv import load_dotenv
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
 router = APIRouter(
@@ -27,18 +28,14 @@ router = APIRouter(
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # 로그인시 필요한 토큰,키,알고리즘
+load_dotenv()
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
-SECRET_KEY = secrets.token_urlsafe(32)
+SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
 
-class OAuth2Password(BaseModel):
-    email: str
-    password: str
-
-
 @router.post("/email", status_code=status.HTTP_200_OK)
-def emailcheck(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
+def emailcheck(_user_create: UserCreate, db: Session = Depends(get_db)):
     user = user_crud.get_existing_email(db, _user_create.email)
     if user:
         raise HTTPException(
@@ -48,7 +45,7 @@ def emailcheck(_user_create: user_schema.UserCreate, db: Session = Depends(get_d
 
 
 @router.post("/name", status_code=status.HTTP_200_OK)
-def namecheck(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
+def namecheck(_user_create: UserCreate, db: Session = Depends(get_db)):
     user = user_crud.get_existing_name(db, _user_create.nickname)
     if user:
         raise HTTPException(
@@ -58,7 +55,7 @@ def namecheck(_user_create: user_schema.UserCreate, db: Session = Depends(get_db
 
 
 @router.post("/create", status_code=status.HTTP_200_OK)
-def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_db)):
+def user_create(_user_create: UserCreate, db: Session = Depends(get_db)):
     create = user_crud.create_user(db=db, user_create=_user_create)
     user_name = _user_create.nickname
     print(f"새로운 유저 '{user_name}' 생성 완료")
@@ -66,13 +63,13 @@ def user_create(_user_create: user_schema.UserCreate, db: Session = Depends(get_
 
 
 @router.delete("/delete", status_code=status.HTTP_200_OK)
-def user_delete(email: str = None, password: str = None, db: Session = Depends(get_db)):
-    delete_result = user_crud.delete_user(db, email=email, password=password)
+def user_delete(_user_create: UserCreate, db: Session = Depends(get_db)):
+    delete_result = user_crud.delete_user(db, _user_create.email, _user_create.password)
 
     if delete_result is None:
         return JSONResponse(
             status_code=status.HTTP_400_BAD_REQUEST,
-            content={"알림": "유저를 찾을 수 없습니다."},
+            content={"알림": "유저 비밀번호가 틀립니다."},
         )
 
     if "error" in delete_result:
@@ -83,8 +80,10 @@ def user_delete(email: str = None, password: str = None, db: Session = Depends(g
 
 
 @router.post("/login", response_model=Token)
-def login(form_data: OAuth2Password = Depends(), db: Session = Depends(get_db)):
-    user = user_crud.get_user(db, email=form_data.email)
+def login(
+    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+):
+    user = user_crud.get_user(db, email=form_data.username)
     if not user:
         print("일치하지 않은 아이디 입니다.")
         raise HTTPException(
@@ -117,7 +116,7 @@ def login(form_data: OAuth2Password = Depends(), db: Session = Depends(get_db)):
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
 
 
-@router.get("/validate")
+@router.post("/validate")
 def current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
@@ -140,7 +139,8 @@ def current_user(
     user = get_user(db, email=email)
     if user is None:
         raise credentials_exception
-    return user
+    # return user
+    return {"유저 식별 완료."}
 
 
 @router.put("/update", status_code=status.HTTP_200_OK)
@@ -161,18 +161,19 @@ def update_user_info(
 
 
 @router.post("/reset-password-request")
-def reset_password_request(nickname: str, email: str, db: Session = Depends(get_db)):
-    # nickname만으로 사용자 확인
-    user_by_nickname = db.query(User).filter(User.nickname == nickname).first()
-    if not user_by_nickname:
-        raise HTTPException(status_code=404, detail="해당 아이디를 찾을 수 없습니다.")
-
+def reset_password_request(email: str, nickname: str, db: Session = Depends(get_db)):
     # email만으로 사용자 확인
     user_by_email = db.query(User).filter(User.email == email).first()
     if not user_by_email:
         raise HTTPException(
             status_code=404, detail="해당 이메일로 가입된 유저가 없습니다."
         )
+
+    # nickname만으로 사용자 확인
+    user_by_nickname = db.query(User).filter(User.nickname == nickname).first()
+    if not user_by_nickname:
+        raise HTTPException(status_code=404, detail="해당 아이디를 찾을 수 없습니다.")
+
     # nickname과 email로 사용자 확인
     user = db.query(User).filter(User.nickname == nickname, User.email == email).first()
     if not user:
@@ -181,7 +182,7 @@ def reset_password_request(nickname: str, email: str, db: Session = Depends(get_
         )
 
     # 임시 비밀번호 생성
-    temporary_password = generate_temporary_password(user.email, user.nickname)
+    temporary_password = generate_temporary_password(db, user)
 
     # 이메일로 임시 비밀번호 전송
     send_reset_email(email, f"임시 비밀번호: {temporary_password}")

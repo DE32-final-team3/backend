@@ -4,6 +4,7 @@ from bcrypt import checkpw
 from src.final_backend.user_schema import UserCreate
 from src.final_backend.models import User
 from jigutime import jigu
+import string, secrets
 
 # bcrypt 알고리즘을 사용하여 비밀번호를 암호화
 # pwd_context 객체를 생성하고 pwd_context 객체를 사용하여 비밀번호를 암호화하여 저장
@@ -31,15 +32,19 @@ def get_existing_name(db: Session, nickname: str):
     return db.query(User).filter(User.nickname == nickname).first()
 
 
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    return pwd_context.verify(plain_password, hashed_password)
+
+
 def delete_user(db: Session, email: str, password: str):
     user = db.query(User).filter(User.email == email).first()
-    if user and checkpw(password.encode(), user.password.encode()):
+    if user and verify_password(user.password, password):
         db.delete(user)
         db.commit()
         print("Log: 유저" "" f'"{email}" 삭제 완료.')
-        return {"유저" "" f'"{email}" 삭제 완료.'}
+        return {"Log: 유저" "" f'"{email}" 삭제 완료.'}
     else:
-        print("Log: 유저" "" f'"{email}"를 찾을 수 없습니다.')
+        print("Log: 유저 비밀번호가 틀립니다.")
         return None
 
 
@@ -59,23 +64,19 @@ def update_user_info(db: Session, user: User, updated_data: dict):
     return user
 
 
-def generate_temporary_password(db, user, length=8):
-    import secrets
-    import string
-    from passlib.context import CryptContext
-
-    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+def generate_temporary_password(db: Session, user: User, length=8):
 
     # 임시 비밀번호 생성
     characters = string.ascii_letters + string.digits  # 대소문자 + 숫자
     temporary_password = "".join(secrets.choice(characters) for _ in range(length))
 
     # 암호화하여 DB에 저장
-    User.password = pwd_context.hash(temporary_password)
+    user.password = pwd_context.hash(temporary_password)
     db.commit()
     db.refresh(user)
 
     # 생성된 비밀번호 반환
+    print(temporary_password)
     return temporary_password
 
 
