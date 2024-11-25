@@ -35,8 +35,8 @@ ALGORITHM = "HS256"
 
 
 @router.post("/email", status_code=status.HTTP_200_OK)
-def emailcheck(_user_create: UserCreate, db: Session = Depends(get_db)):
-    user = user_crud.get_existing_email(db, _user_create.email)
+def emailcheck(email=str, db: Session = Depends(get_db)):
+    user = user_crud.get_existing_email(db, email)
     if user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 이메일입니다."
@@ -45,8 +45,8 @@ def emailcheck(_user_create: UserCreate, db: Session = Depends(get_db)):
 
 
 @router.post("/name", status_code=status.HTTP_200_OK)
-def namecheck(_user_create: UserCreate, db: Session = Depends(get_db)):
-    user = user_crud.get_existing_name(db, _user_create.nickname)
+def namecheck(nickname=str, db: Session = Depends(get_db)):
+    user = user_crud.get_existing_name(db, nickname)
     if user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 닉네임입니다."
@@ -139,8 +139,8 @@ def current_user(
     user = get_user(db, email=email)
     if user is None:
         raise credentials_exception
-    # return user
-    return {"유저 식별 완료."}
+
+    return user
 
 
 @router.put("/update", status_code=status.HTTP_200_OK)
@@ -150,14 +150,18 @@ def update_user_info(
     db: Session = Depends(get_db),
 ):
     updated_user = user_crud.update_user_info(
-        db, user=current_user, updated_data=update_data.dict(exclude_unset=True)
+        db, user=current_user, updated_data=update_data.model_dump(exclude_unset=True)
     )
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Failed to update user information.",
         )
-    return {"message": "회원정보 변경 완료", updated_user.nickname: updated_user}
+    return {
+        "message": "회원정보 변경 완료",
+        "nickname": updated_user.nickname,
+        "email": updated_user.email,
+    }
 
 
 @router.post("/reset-password-request")
@@ -185,7 +189,7 @@ def reset_password_request(email: str, nickname: str, db: Session = Depends(get_
     temporary_password = generate_temporary_password(db, user)
 
     # 이메일로 임시 비밀번호 전송
-    send_reset_email(email, f"임시 비밀번호: {temporary_password}")
+    send_reset_email(email, temporary_password)
     return {
         "message": f"임시 비밀번호가 이메일로 전송되었습니다. 로그인 후 비밀번호를 변경하세요."
     }

@@ -38,7 +38,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def delete_user(db: Session, email: str, password: str):
     user = db.query(User).filter(User.email == email).first()
-    if user and verify_password(user.password, password):
+    if user and pwd_context.verify(password, user.password):
         db.delete(user)
         db.commit()
         print("Log: 유저" "" f'"{email}" 삭제 완료.')
@@ -53,6 +53,10 @@ def get_user(db: Session, email: str):
 
 
 def update_user_info(db: Session, user: User, updated_data: dict):
+
+    if not isinstance(user, User):
+        raise ValueError("Provided user must be an instance of User model.")
+
     for key, value in updated_data.items():
         if key == "password" and value is not None:
             value = pwd_context.hash(value)
@@ -72,6 +76,7 @@ def generate_temporary_password(db: Session, user: User, length=8):
 
     # 암호화하여 DB에 저장
     user.password = pwd_context.hash(temporary_password)
+    db.add(user)
     db.commit()
     db.refresh(user)
 
@@ -80,16 +85,53 @@ def generate_temporary_password(db: Session, user: User, length=8):
     return temporary_password
 
 
-def send_reset_email(email: str, content: str):
-    """
-    msg = MIMEText(f"다음은 임시 비밀번호입니다:\n\n{content}\n\n로그인 후 비밀번호를 변경하세요.")
-    msg["Subject"] = "임시 비밀번호 발급 안내"
-    msg["From"] = "your_email@example.com"
-    msg["To"] = email
+import os
+from dotenv import load_dotenv
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
-    with smtplib.SMTP("smtp.gmail.com", 587) as server:
-        server.starttls()
-        server.login("your_email@example.com", "your_email_password")
-        server.sendmail(msg["From"], [email], msg.as_string())
+load_dotenv()
+
+
+def send_reset_email(email: str, content: str):
+    # SMTP 서버 설정
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+    smtp_user = os.getenv("smtp_user")
+    smtp_password = os.getenv("smtp_password")
+
+    # 이메일 메시지 설정
+    msg = MIMEMultipart()
+    msg["From"] = "tunetalk"
+    msg["To"] = email
+    msg["Subject"] = "임시 비밀번호 발급 안내"
+
+    body_text = f"요청한 임시 비밀번호입니다. 로그인 후 비밀번호를 변경하세요."
+    body_html = f"""
+    <html>
+    <head></head>
+    <body>
+      <h3>임시 비밀번호 발급 안내</h3>
+      <p>요청한 임시 비밀번호입니다</p>
+      <p><strong>{content}</strong></p>
+      <p>반드시 로그인 후 비밀번호를 변경하세요.</p>
+    </body>
+    </html>
     """
-    return content
+
+    # MIME 타입 설정
+    msg.attach(MIMEText(body_text, "plain"))
+    msg.attach(MIMEText(body_html, "html"))
+
+    try:
+        # SMTP 서버 연결 및 이메일 전송
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(msg["From"], msg["To"], msg.as_string())
+        print("Email sent successfully!")
+        return True
+    except Exception as e:
+        print(f"Error sending email: {e}")
+        return None
