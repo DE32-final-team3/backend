@@ -23,6 +23,7 @@ dependencies = [
     "jigutime>=0.2.1",
     "bcrypt>=4.2.1",
     "dotenv>=0.0.5",
+    "boto3>=1.35.68",
 ]
 requires-python = ">=3.11"
 readme = "README.md"
