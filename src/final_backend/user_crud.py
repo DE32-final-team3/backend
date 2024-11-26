@@ -1,10 +1,11 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from bcrypt import checkpw
 from src.final_backend.user_schema import UserCreate
 from src.final_backend.models import User
 from jigutime import jigu
-import string, secrets
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+import string, secrets, os, smtplib
 
 # bcrypt 알고리즘을 사용하여 비밀번호를 암호화
 # pwd_context 객체를 생성하고 pwd_context 객체를 사용하여 비밀번호를 암호화하여 저장
@@ -85,21 +86,16 @@ def generate_temporary_password(db: Session, user: User, length=8):
     return temporary_password
 
 
-import os
-from dotenv import load_dotenv
-import smtplib
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
-
-load_dotenv()
+SMTP_USER = os.getenv("SMTP_USER")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 
 def send_reset_email(email: str, content: str):
     # SMTP 서버 설정
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
-    smtp_user = os.getenv("smtp_user")
-    smtp_password = os.getenv("smtp_password")
+    smtp_user = SMTP_USER
+    smtp_password = SMTP_PASSWORD
 
     # 이메일 메시지 설정
     msg = MIMEMultipart()

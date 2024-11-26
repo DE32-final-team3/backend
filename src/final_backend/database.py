@@ -3,9 +3,11 @@ from sqlalchemy.ext.declarative import (
     declarative_base,
 )  # 테이블과 클래스를 연결 하는데 사용되는 기본 클래스 생성
 from sqlalchemy.orm import sessionmaker  # DB와 상호작용 하는 세션 생성 모듈
+import os
 
 # Database 접속 주소
-DATABASE_URL = "mariadb+pymysql://root:1234@127.0.0.1:3307/tunetalk"
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DATABASE_URL = f"mariadb+pymysql://root:{DB_PASSWORD}@127.0.0.1:3307/tunetalk"
 # DB와 연결을 관리하는 엔진 객체 생성
 engine = create_engine(DATABASE_URL)
 # 데이터베이스와 통신할 때 필요한 세션을 생성.
