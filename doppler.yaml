@@ -1,0 +1,3 @@
+setup:
+  - project: tunetalk_backend
+    config: dev
