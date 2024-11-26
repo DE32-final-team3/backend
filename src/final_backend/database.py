@@ -7,7 +7,9 @@ import os
 
 # Database 접속 주소
 DB_PASSWORD = os.getenv("DB_PASSWORD")
-DATABASE_URL = f"mariadb+pymysql://root:{DB_PASSWORD}@127.0.0.1:3307/tunetalk"
+DB_IP = os.getenv("DB_IP")
+DB_PORT = os.getenv("DB_PORT")
+DATABASE_URL = f"mariadb+pymysql://root:{DB_PASSWORD}@{DB_IP}:{DB_PORT}/tunetalk"
 # DB와 연결을 관리하는 엔진 객체 생성
 engine = create_engine(DATABASE_URL)
 # 데이터베이스와 통신할 때 필요한 세션을 생성.
