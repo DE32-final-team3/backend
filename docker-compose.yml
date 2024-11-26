@@ -6,3 +6,9 @@ services:
     container_name: fastapi
     ports:
       - "8000:8000"
+    environment:
+      # Doppler Token 환경 변수 설정
+      DOPPLER_TOKEN: ${DOPPLER_TOKEN}
+    command: doppler run -- uvicorn src.final_backend.main:app --host 0.0.0.0 --port 8000
+    volumes:
+      - .:/app
