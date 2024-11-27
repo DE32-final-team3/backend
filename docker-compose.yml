@@ -10,4 +10,4 @@ services:
       # Doppler Token 환경 변수 설정
       DOPPLER_TOKEN: ${DOPPLER_TOKEN}
     volumes:
-      - ./uploaded_images:/app/uploaded_images
+      - /home/ubuntu/mariadb/user_profile_images:/app/user_profile_images
