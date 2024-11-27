@@ -1,15 +1,14 @@
-from fastapi import APIRouter, HTTPException, Depends, Form
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
+from fastapi.responses import JSONResponse, FileResponse
 from sqlalchemy.orm import Session
 from starlette import status
 from datetime import timedelta, datetime
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from passlib.context import CryptContext
-import pytz, os
-from pydantic import EmailStr, BaseModel
+import pytz, os, shutil
 from src.final_backend.database import get_db
-from src.final_backend import user_crud, user_schema
+from src.final_backend import user_crud
 from src.final_backend.user_schema import UserCreate, UserUpdate, Token
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
@@ -18,18 +17,16 @@ from src.final_backend.user_crud import (
     generate_temporary_password,
     get_user,
 )
-from dotenv import load_dotenv
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
 router = APIRouter(
-    prefix="/api/user",  # 엔드포인트 경로에 /api/user 추가
+    prefix="/api/user",
 )
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 # 로그인시 필요한 토큰,키,알고리즘
-load_dotenv()
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 120
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
@@ -44,7 +41,7 @@ def emailcheck(email=str, db: Session = Depends(get_db)):
     return {"message": "사용자가 존재하지 않습니다."}
 
 
-@router.post("/name", status_code=status.HTTP_200_OK)
+@router.post("/nickname", status_code=status.HTTP_200_OK)
 def namecheck(nickname=str, db: Session = Depends(get_db)):
     user = user_crud.get_existing_name(db, nickname)
     if user:
@@ -57,6 +54,10 @@ def namecheck(nickname=str, db: Session = Depends(get_db)):
 @router.post("/create", status_code=status.HTTP_200_OK)
 def user_create(_user_create: UserCreate, db: Session = Depends(get_db)):
     create = user_crud.create_user(db=db, user_create=_user_create)
+    if not create:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="회원가입이 불가능 합니다."
+        )
     user_name = _user_create.nickname
     print(f"새로운 유저 '{user_name}' 생성 완료")
     return create
@@ -193,3 +194,57 @@ def reset_password_request(email: str, nickname: str, db: Session = Depends(get_
     return {
         "message": f"임시 비밀번호가 이메일로 전송되었습니다. 로그인 후 비밀번호를 변경하세요."
     }
+
+
+@router.post("/upload_profile", status_code=status.HTTP_200_OK)
+def upload_profile_image(
+    file: UploadFile = File(...),
+    id: str = "",  # 현재 사용자 정보
+    db: Session = Depends(get_db),
+):
+    user = db.query(User).filter(User.id == id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
+    # 업로드된 파일 저장 경로 설정
+    upload_directory = "user_profile_images"
+    if not os.path.exists(upload_directory):
+        os.makedirs(upload_directory)
+
+    file_location = os.path.join(upload_directory, file.filename)
+    with open(file_location, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    # 파일 경로를 DB에 저장
+    updated_user = user_crud.update_profile(db, user, file_location)
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="프로필 이미지 업데이트에 실패했습니다.",
+        )
+
+    return {"message": "프로필 이미지 업로드 완료", "file_path": file_location}
+
+
+@router.get("/profile/get_image", status_code=status.HTTP_200_OK)
+def get_profile_image(id: str, db: Session = Depends(get_db)):
+    # DB에서 사용자 조회
+    user = db.query(User).filter(User.id == id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
+
+    # 프로필 이미지 경로 확인
+    if not user.profile:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="프로필 이미지가 존재하지 않습니다.",
+        )
+
+    # 이미지 파일의 경로 확인
+    if not os.path.exists(user.profile):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="서버에서 프로필 이미지 파일을 찾을 수 없습니다.",
+        )
+
+    # 이미지 파일을 반환
+    return FileResponse(user.profile)

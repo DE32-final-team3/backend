@@ -131,3 +131,13 @@ def send_reset_email(email: str, content: str):
     except Exception as e:
         print(f"Error sending email: {e}")
         return None
+
+
+def update_profile(db: Session, user: User, image_path: str):
+
+    user.profile = image_path
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    print("프로일 이미지 저장 완료.")
+    return user
