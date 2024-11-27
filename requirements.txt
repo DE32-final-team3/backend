@@ -1,5 +1,5 @@
-fastapi==0.115.5
-uvicorn==0.32.1
+fastapi
+uvicorn
 pydantic[email]==2.9.2
 sqlalchemy==2.0.36
 passlib==1.7.4
@@ -13,4 +13,4 @@ starlette==0.41.3
 pytz>=2024.2
 jigutime==0.2.1
 bcrypt
-python-dotenv
+boto3>=1.35.68

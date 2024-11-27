@@ -1,7 +1,8 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-from src.final_backend import user_router
-from src.final_backend.database import create_tables
+from database import create_tables
+import user_router
+
 
 app = FastAPI()
 

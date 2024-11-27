@@ -9,7 +9,7 @@ import os
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_IP = os.getenv("DB_IP")
 DB_PORT = os.getenv("DB_PORT")
-DATABASE_URL = f"mariadb+pymysql://root:{DB_PASSWORD}@{DB_IP}:{DB_PORT}/tunetalk"
+DATABASE_URL = f"mariadb+pymysql://root:{DB_PASSWORD}@{DB_IP}:3308/tunetalk"
 # DB와 연결을 관리하는 엔진 객체 생성
 engine = create_engine(DATABASE_URL)
 # 데이터베이스와 통신할 때 필요한 세션을 생성.
@@ -20,7 +20,7 @@ Base = declarative_base()
 
 # Base를 상속받은 모든 클래스를 기반으로 데이터베이스에 테이블 생성(테이블 존재시 생성 X)
 def create_tables():
-    from src.final_backend.models import Base
+    from models import Base
 
     Base.metadata.create_all(engine)
 

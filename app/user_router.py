@@ -8,11 +8,11 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 import pytz, os
 from pydantic import EmailStr, BaseModel
-from src.final_backend.database import get_db
-from src.final_backend import user_crud, user_schema
-from src.final_backend.user_schema import UserCreate, UserUpdate, Token
-from src.final_backend.models import User
-from src.final_backend.user_crud import (
+from database import get_db
+import user_crud, user_schema
+from user_schema import UserCreate, UserUpdate, Token
+from models import User
+from user_crud import (
     pwd_context,
     send_reset_email,
     generate_temporary_password,
