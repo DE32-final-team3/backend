@@ -9,7 +9,7 @@ from passlib.context import CryptContext
 import pytz, os, shutil
 from src.final_backend.database import get_db
 from src.final_backend import user_crud
-from src.final_backend.user_schema import UserCreate, UserUpdate, Token
+from src.final_backend.schema import UserCreate, UserUpdate, Token
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
     pwd_context,
@@ -165,7 +165,7 @@ def update_user_info(
     }
 
 
-@router.post("/reset-password-request")
+@router.post("/reset-password")
 def reset_password_request(email: str, nickname: str, db: Session = Depends(get_db)):
     # email만으로 사용자 확인
     user_by_email = db.query(User).filter(User.email == email).first()
@@ -196,10 +196,10 @@ def reset_password_request(email: str, nickname: str, db: Session = Depends(get_
     }
 
 
-@router.post("/upload_profile", status_code=status.HTTP_200_OK)
+@router.post("/profile/upload", status_code=status.HTTP_200_OK)
 def upload_profile_image(
+    id: str = "",
     file: UploadFile = File(...),
-    id: str = "",  # 현재 사용자 정보
     db: Session = Depends(get_db),
 ):
     user = db.query(User).filter(User.id == id).first()
@@ -225,7 +225,7 @@ def upload_profile_image(
     return {"message": "프로필 이미지 업로드 완료", "file_path": file_location}
 
 
-@router.get("/profile/get_image", status_code=status.HTTP_200_OK)
+@router.get("/profile/get", status_code=status.HTTP_200_OK)
 def get_profile_image(id: str, db: Session = Depends(get_db)):
     # DB에서 사용자 조회
     user = db.query(User).filter(User.id == id).first()

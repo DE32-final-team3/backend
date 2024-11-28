@@ -1,6 +1,6 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
-from src.final_backend.user_schema import UserCreate
+from src.final_backend.schema import UserCreate
 from src.final_backend.models import User
 from jigutime import jigu
 from email.mime.multipart import MIMEMultipart
@@ -82,7 +82,6 @@ def generate_temporary_password(db: Session, user: User, length=8):
     db.refresh(user)
 
     # 생성된 비밀번호 반환
-    print(temporary_password)
     return temporary_password
 
 
@@ -101,14 +100,14 @@ def send_reset_email(email: str, content: str):
     msg = MIMEMultipart()
     msg["From"] = "tunetalk"
     msg["To"] = email
-    msg["Subject"] = "임시 비밀번호 발급 안내"
+    msg["Subject"] = "Tunetalk 임시 비밀번호 발급 안내"
 
     body_text = f"요청한 임시 비밀번호입니다. 로그인 후 비밀번호를 변경하세요."
     body_html = f"""
     <html>
     <head></head>
     <body>
-      <h3>임시 비밀번호 발급 안내</h3>
+      <h3>Tunetalk 임시 비밀번호 발급 안내</h3>
       <p>요청한 임시 비밀번호입니다</p>
       <p><strong>{content}</strong></p>
       <p>반드시 로그인 후 비밀번호를 변경하세요.</p>
@@ -126,7 +125,7 @@ def send_reset_email(email: str, content: str):
             server.starttls()
             server.login(smtp_user, smtp_password)
             server.sendmail(msg["From"], msg["To"], msg.as_string())
-        print("Email sent successfully!")
+        print("이메일 전송 성공")
         return True
     except Exception as e:
         print(f"Error sending email: {e}")
