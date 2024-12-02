@@ -11,7 +11,7 @@ DB_IP = os.getenv("DB_IP")
 DB_PORT = os.getenv("DB_PORT")
 DATABASE_URL = f"mariadb+pymysql://root:{DB_PASSWORD}@{DB_IP}:{DB_PORT}/tunetalk"
 # DB와 연결을 관리하는 엔진 객체 생성
-engine = create_engine(DATABASE_URL)
+engine = create_engine(DATABASE_URL, pool_pre_ping=True)
 # 데이터베이스와 통신할 때 필요한 세션을 생성.
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 # 데이터베이스 테이블과 Python 클래스를 연결할 수 있는 기본 클래스를 생성합니다.

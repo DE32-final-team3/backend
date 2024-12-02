@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
-from src.final_backend import user_router
+from src.final_backend.router import user_router, track_router, playlist_router
 from src.final_backend.database import create_tables
 
 app = FastAPI()
@@ -19,4 +19,6 @@ app.add_middleware(
 )
 
 # user_router 모듈에 정의된 API 라우팅을 FastAPI 애플리케이션에 등록
-app.include_router(user_router.router)
+app.include_router(user_router.user_router)
+app.include_router(track_router.track_router)
+app.include_router(playlist_router.playlist_router)

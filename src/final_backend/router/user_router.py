@@ -9,19 +9,20 @@ from passlib.context import CryptContext
 import pytz, os, shutil
 from src.final_backend.database import get_db
 from src.final_backend import user_crud
-from src.final_backend.schema import UserCreate, UserUpdate, Token
+from src.final_backend.schema import UserCreate, UserUpdate, Token, UserTasteBase
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
     pwd_context,
     send_reset_email,
     generate_temporary_password,
     get_user,
+    add_follow,
+    update_user_taste,
+    follow_delete,
 )
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
-router = APIRouter(
-    prefix="/api/user",
-)
+user_router = APIRouter(prefix="/api/user", tags=["User"])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -31,7 +32,7 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
 
-@router.post("/email", status_code=status.HTTP_200_OK)
+@user_router.post("/email", status_code=status.HTTP_200_OK)
 def emailcheck(email=str, db: Session = Depends(get_db)):
     user = user_crud.get_existing_email(db, email)
     if user:
@@ -41,7 +42,7 @@ def emailcheck(email=str, db: Session = Depends(get_db)):
     return {"message": "사용자가 존재하지 않습니다."}
 
 
-@router.post("/nickname", status_code=status.HTTP_200_OK)
+@user_router.post("/nickname", status_code=status.HTTP_200_OK)
 def namecheck(nickname=str, db: Session = Depends(get_db)):
     user = user_crud.get_existing_name(db, nickname)
     if user:
@@ -51,7 +52,7 @@ def namecheck(nickname=str, db: Session = Depends(get_db)):
     return {"message": "사용자가 존재하지 않습니다."}
 
 
-@router.post("/create", status_code=status.HTTP_200_OK)
+@user_router.post("/create", status_code=status.HTTP_200_OK)
 def user_create(_user_create: UserCreate, db: Session = Depends(get_db)):
     create = user_crud.create_user(db=db, user_create=_user_create)
     if not create:
@@ -63,7 +64,7 @@ def user_create(_user_create: UserCreate, db: Session = Depends(get_db)):
     return create
 
 
-@router.delete("/delete", status_code=status.HTTP_200_OK)
+@user_router.delete("/delete", status_code=status.HTTP_200_OK)
 def user_delete(_user_create: UserCreate, db: Session = Depends(get_db)):
     delete_result = user_crud.delete_user(db, _user_create.email, _user_create.password)
 
@@ -80,7 +81,7 @@ def user_delete(_user_create: UserCreate, db: Session = Depends(get_db)):
     return delete_result
 
 
-@router.post("/login", response_model=Token)
+@user_router.post("/login", response_model=Token)
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
 ):
@@ -117,7 +118,7 @@ def login(
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
 
 
-@router.post("/validate")
+@user_router.post("/validate")
 def current_user(
     token: str = Depends(oauth2_scheme),
     db: Session = Depends(get_db),
@@ -144,7 +145,7 @@ def current_user(
     return user
 
 
-@router.put("/update", status_code=status.HTTP_200_OK)
+@user_router.put("/update", status_code=status.HTTP_200_OK)
 def update_user_info(
     update_data: UserUpdate,
     current_user: User = Depends(current_user),
@@ -165,7 +166,7 @@ def update_user_info(
     }
 
 
-@router.post("/reset-password")
+@user_router.post("/reset-password")
 def reset_password_request(email: str, nickname: str, db: Session = Depends(get_db)):
     # email만으로 사용자 확인
     user_by_email = db.query(User).filter(User.email == email).first()
@@ -196,7 +197,7 @@ def reset_password_request(email: str, nickname: str, db: Session = Depends(get_
     }
 
 
-@router.post("/profile/upload", status_code=status.HTTP_200_OK)
+@user_router.post("/profile/upload", status_code=status.HTTP_200_OK)
 def upload_profile_image(
     id: str = "",
     file: UploadFile = File(...),
@@ -225,7 +226,7 @@ def upload_profile_image(
     return {"message": "프로필 이미지 업로드 완료", "file_path": file_location}
 
 
-@router.get("/profile/get", status_code=status.HTTP_200_OK)
+@user_router.get("/profile/get", status_code=status.HTTP_200_OK)
 def get_profile_image(id: str, db: Session = Depends(get_db)):
     # DB에서 사용자 조회
     user = db.query(User).filter(User.id == id).first()
@@ -248,3 +249,27 @@ def get_profile_image(id: str, db: Session = Depends(get_db)):
 
     # 이미지 파일을 반환
     return FileResponse(user.profile)
+
+
+@user_router.post("/taste")
+def update_tastes(tastes: list[UserTasteBase], db: Session = Depends(get_db)):
+    update_user_taste(db, tastes=[taste.model_dump() for taste in tastes])
+    return {"message": "User tastes updated successfully"}
+
+
+@user_router.post("/follow")
+def follow_user(user_id: str, following_id: str, db: Session = Depends(get_db)):
+    result = add_follow(db, user_id, following_id)
+    user = result.get("user")
+    f_user = result.get("f_user")
+    print(f"유저 {user}님이 유저 {f_user}님을 팔로우 합니다.")
+    return result
+
+
+@user_router.delete("/follow/delete")
+def follow_Delete(user_id: str, following_id: str, db: Session = Depends(get_db)):
+    result = follow_delete(db, user_id, following_id)
+    user = result["user"]["nickname"]
+    f_user = result["f_user"]["nickname"]
+    print(f"유저 {user}님이 유저 {f_user}님을 언팔로우 합니다.")
+    return result

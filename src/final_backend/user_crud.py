@@ -1,11 +1,12 @@
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 from src.final_backend.schema import UserCreate
-from src.final_backend.models import User
+from src.final_backend.models import User, Following, UserTaste
 from jigutime import jigu
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import string, secrets, os, smtplib
+
 
 # bcrypt 알고리즘을 사용하여 비밀번호를 암호화
 # pwd_context 객체를 생성하고 pwd_context 객체를 사용하여 비밀번호를 암호화하여 저장
@@ -140,3 +141,99 @@ def update_profile(db: Session, user: User, image_path: str):
     db.refresh(user)
     print("프로일 이미지 저장 완료.")
     return user
+
+
+def update_user_taste(db: Session, tastes: list[dict]):
+    for taste in tastes:
+        # Query the UserTaste table
+        existing_taste = (
+            db.query(UserTaste).filter(UserTaste.user_id == taste["user_id"]).first()
+        )
+        if existing_taste:
+            # Update existing user taste
+            existing_taste.acousticness = taste.get(
+                "acousticness", existing_taste.acousticness
+            )
+            existing_taste.danceability = taste.get(
+                "danceability", existing_taste.danceability
+            )
+            existing_taste.instrumentalness = taste.get(
+                "instrumentalness", existing_taste.instrumentalness
+            )
+            existing_taste.energy = taste.get("energy", existing_taste.energy)
+            existing_taste.tempo = taste.get("tempo", existing_taste.tempo)
+            existing_taste.valence = taste.get("valence", existing_taste.valence)
+            existing_taste.speechiness = taste.get(
+                "speechiness", existing_taste.speechiness
+            )
+        else:
+            # Insert a new user taste
+            new_taste = UserTaste(
+                user_id=taste["user_id"],
+                acousticness=taste.get("acousticness"),
+                danceability=taste.get("danceability"),
+                instrumentalness=taste.get("instrumentalness"),
+                energy=taste.get("energy"),
+                tempo=taste.get("tempo"),
+                valence=taste.get("valence"),
+                speechiness=taste.get("speechiness"),
+            )
+            db.add(new_taste)
+    db.commit()
+
+
+def add_follow(db: Session, user_id: str, following: str):
+    # Check if the follow relationship already exists
+    existing = (
+        db.query(Following)
+        .filter(
+            Following.user_id == user_id,
+            Following.following == following,
+        )
+        .first()
+    )
+    user = db.query(User).filter(User.id == user_id).first()
+    f_user = db.query(User).filter(User.id == following).first()
+    if not existing:
+        # Create new follow relationship
+        follow = Following(
+            user_id=user_id,
+            following=following,
+        )
+        db.add(follow)
+        db.commit()
+        return {
+            "message": f"({user.nickname}) 유저가 ({f_user.nickname}) 유저를 팔로우 합니다.",
+            "user": user.nickname,
+            "f_user": f_user.nickname,
+        }
+    else:
+        return {
+            "message": f"유저 ({user.nickname})가 이미 ({f_user.nickname})를 팔로우 중 입니다."
+        }
+
+
+def follow_delete(db: Session, user_id: str, following: str):
+    # Check if the follow relationship already exists
+    existing = (
+        db.query(Following)
+        .filter(
+            Following.user_id == user_id,
+            Following.following == following,
+        )
+        .first()
+    )
+    user = db.query(User).filter(User.id == user_id).first()
+    f_user = db.query(User).filter(User.id == following).first()
+    if existing:
+        db.delete(existing)
+        db.commit()
+        return {
+            "message": f"유저 ({user.nickname})가 유저 ({f_user.nickname})를 언팔로우 합니다.",
+            "user": {"id": user.id, "nickname": user.nickname},
+            "f_user": {"id": f_user.id, "nickname": f_user.nickname},
+        }
+    else:
+        return {
+            "message": f"유저 ({user.nickname})가 유저 ({f_user.nickname})를 팔로우 중이 아닙니다."
+        }
