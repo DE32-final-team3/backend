@@ -7,19 +7,22 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import jwt, JWTError
 from passlib.context import CryptContext
 import pytz, os, shutil
-from src.final_backend.database import get_db
 from src.final_backend import user_crud
-from src.final_backend.schema import UserCreate, UserUpdate, Token, UserTasteBase
+from src.final_backend.schema import UserCreate, UserUpdate, Token
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
-    pwd_context,
+    get_existing_email,
+    get_existing_name,
+    create_user,
     send_reset_email,
     generate_temporary_password,
-    get_user,
     add_follow,
-    update_user_taste,
     follow_delete,
+    update_profile,
 )
+from odmantic import AIOEngine
+from src.final_backend.database import DATABASE_URL
+from motor.motor_asyncio import AsyncIOMotorClient
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
 user_router = APIRouter(prefix="/api/user", tags=["User"])
@@ -32,41 +35,54 @@ SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = "HS256"
 
 
+# AIOEngine을 FastAPI에서 사용할 수 있도록 설정
+async def get_engine():
+    client = AsyncIOMotorClient(DATABASE_URL)
+
+    return AIOEngine(client=client, database="cinetalk")
+
+
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
+
+
 @user_router.post("/email", status_code=status.HTTP_200_OK)
-def emailcheck(email=str, db: Session = Depends(get_db)):
-    user = user_crud.get_existing_email(db, email)
-    if user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 이메일입니다."
-        )
-    return {"message": "사용자가 존재하지 않습니다."}
+async def emailcheck(email=str, engine: AIOEngine = Depends(get_engine)):
+    existing_email = await get_existing_email(engine, email)
+    if existing_email:
+        raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다.")
+    return {"message": "사용 가능한 이메일입니다."}
 
 
 @user_router.post("/nickname", status_code=status.HTTP_200_OK)
-def namecheck(nickname=str, db: Session = Depends(get_db)):
-    user = user_crud.get_existing_name(db, nickname)
-    if user:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT, detail="이미 존재하는 닉네임입니다."
-        )
-    return {"message": "사용자가 존재하지 않습니다."}
+async def namecheck(nickname=str, engine: AIOEngine = Depends(get_engine)):
+    existing_name = await get_existing_name(engine, nickname)
+    if existing_name:
+        raise HTTPException(status_code=409, detail="이미 사용 중인 닉네임입니다.")
+    return {"message": "사용 가능한 닉네임입니다."}
 
 
 @user_router.post("/create", status_code=status.HTTP_200_OK)
-def user_create(_user_create: UserCreate, db: Session = Depends(get_db)):
-    create = user_crud.create_user(db=db, user_create=_user_create)
+async def user_create(
+    _user_create: UserCreate, engine: AIOEngine = Depends(get_engine)
+):
+    create = await create_user(engine=engine, user_data=_user_create)
     if not create:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST, detail="회원가입이 불가능 합니다."
         )
+    # new_user = await create_user(engine, user_create.dict())
     user_name = _user_create.nickname
-    print(f"새로운 유저 '{user_name}' 생성 완료")
+    print(f"유저 '{user_name}' 생성 완료.")
     return create
 
 
 @user_router.delete("/delete", status_code=status.HTTP_200_OK)
-def user_delete(_user_create: UserCreate, db: Session = Depends(get_db)):
-    delete_result = user_crud.delete_user(db, _user_create.email, _user_create.password)
+async def user_delete(
+    _user_create: UserCreate, engine: AIOEngine = Depends(get_engine)
+):
+    delete_result = await user_crud.delete_user(
+        engine, _user_create.email, _user_create.password
+    )
 
     if delete_result is None:
         return JSONResponse(
@@ -82,10 +98,11 @@ def user_delete(_user_create: UserCreate, db: Session = Depends(get_db)):
 
 
 @user_router.post("/login", response_model=Token)
-def login(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
+async def login(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    engine: AIOEngine = Depends(get_engine),
 ):
-    user = user_crud.get_user(db, email=form_data.username)
+    user = await get_existing_email(engine, form_data.username)
     if not user:
         print("일치하지 않은 아이디 입니다.")
         raise HTTPException(
@@ -115,18 +132,15 @@ def login(
     }
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
-
-
 @user_router.post("/validate")
-def current_user(
+async def current_user(
     token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db),
+    engine: AIOEngine = Depends(get_engine),
 ):
     # 토큰 검증
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
+        detail="Token 검증 불가",
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
@@ -138,7 +152,7 @@ def current_user(
         raise credentials_exception
 
     # 사용자 검색
-    user = get_user(db, email=email)
+    user = await get_existing_email(engine, email=email)
     if user is None:
         raise credentials_exception
 
@@ -146,18 +160,20 @@ def current_user(
 
 
 @user_router.put("/update", status_code=status.HTTP_200_OK)
-def update_user_info(
+async def update_user_info(
     update_data: UserUpdate,
     current_user: User = Depends(current_user),
-    db: Session = Depends(get_db),
+    engine: AIOEngine = Depends(get_engine),
 ):
-    updated_user = user_crud.update_user_info(
-        db, user=current_user, updated_data=update_data.model_dump(exclude_unset=True)
+    updated_user = await update_user_info(
+        engine,
+        user=current_user,
+        updated_data=update_data.model_dump(exclude_unset=True),
     )
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to update user information.",
+            detail="회원정보 변경 실패.",
         )
     return {
         "message": "회원정보 변경 완료",
@@ -167,45 +183,45 @@ def update_user_info(
 
 
 @user_router.post("/reset-password")
-def reset_password_request(email: str, nickname: str, db: Session = Depends(get_db)):
+async def reset_password_request(
+    email: str, nickname: str, engine: AIOEngine = Depends(get_engine)
+):
     # email만으로 사용자 확인
-    user_by_email = db.query(User).filter(User.email == email).first()
+    user_by_email = await get_existing_email(engine, email)
     if not user_by_email:
         raise HTTPException(
             status_code=404, detail="해당 이메일로 가입된 유저가 없습니다."
         )
 
     # nickname만으로 사용자 확인
-    user_by_nickname = db.query(User).filter(User.nickname == nickname).first()
+    user_by_nickname = await get_existing_name(engine, nickname)
     if not user_by_nickname:
         raise HTTPException(status_code=404, detail="해당 아이디를 찾을 수 없습니다.")
 
-    # nickname과 email로 사용자 확인
-    user = db.query(User).filter(User.nickname == nickname, User.email == email).first()
+    # email과 nickname이 일치하는지 확인
+    user = await engine.find_one(User, User.email == email, User.nickname == nickname)
     if not user:
         raise HTTPException(
             status_code=404, detail="아이디와 이메일이 일치하지 않습니다."
         )
-
     # 임시 비밀번호 생성
-    temporary_password = generate_temporary_password(db, user)
-
+    temporary_password = await generate_temporary_password(engine, user)
     # 이메일로 임시 비밀번호 전송
-    send_reset_email(email, temporary_password)
+    await send_reset_email(email, temporary_password)
     return {
         "message": f"임시 비밀번호가 이메일로 전송되었습니다. 로그인 후 비밀번호를 변경하세요."
     }
 
 
 @user_router.post("/profile/upload", status_code=status.HTTP_200_OK)
-def upload_profile_image(
-    id: str = "",
+async def upload_profile_image(
+    ID: str = "",
     file: UploadFile = File(...),
-    db: Session = Depends(get_db),
+    engine: AIOEngine = Depends(get_engine),
 ):
-    user = db.query(User).filter(User.id == id).first()
+    user = await engine.find_one(User, User.ID == ID)
     if not user:
-        raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
+        raise HTTPException(status_code=404, detail="유저 고유 ID가 일치하지 않습니다.")
     # 업로드된 파일 저장 경로 설정
     upload_directory = "user_profile_images"
     if not os.path.exists(upload_directory):
@@ -215,23 +231,23 @@ def upload_profile_image(
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # 파일 경로를 DB에 저장
-    updated_user = user_crud.update_profile(db, user, file_location)
+    # 파일 경로를 engine에 저장
+    updated_user = await update_profile(engine, user, file_location)
     if not updated_user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="프로필 이미지 업데이트에 실패했습니다.",
         )
 
-    return {"message": "프로필 이미지 업로드 완료", "file_path": file_location}
+    return {"message": "프로필 이미지 업로드 완료", "file_path": updated_user.profile}
 
 
 @user_router.get("/profile/get", status_code=status.HTTP_200_OK)
-def get_profile_image(id: str, db: Session = Depends(get_db)):
-    # DB에서 사용자 조회
-    user = db.query(User).filter(User.id == id).first()
+async def get_profile_image(ID: str, engine: AIOEngine = Depends(get_engine)):
+    # engine에서 사용자 조회
+    user = await engine.find_one(User, User.ID == ID)
     if not user:
-        raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
+        raise HTTPException(status_code=404, detail="유저 고유 ID가 일치하지 않습니다.")
 
     # 프로필 이미지 경로 확인
     if not user.profile:
@@ -251,15 +267,11 @@ def get_profile_image(id: str, db: Session = Depends(get_db)):
     return FileResponse(user.profile)
 
 
-@user_router.post("/taste")
-def update_tastes(tastes: list[UserTasteBase], db: Session = Depends(get_db)):
-    update_user_taste(db, tastes=[taste.model_dump() for taste in tastes])
-    return {"message": "User tastes updated successfully"}
-
-
 @user_router.post("/follow")
-def follow_user(user_id: str, following_id: str, db: Session = Depends(get_db)):
-    result = add_follow(db, user_id, following_id)
+async def follow_user(
+    user_id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
+):
+    result = await add_follow(engine, user_id, following_id)
     user = result.get("user")
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 팔로우 합니다.")
@@ -267,8 +279,10 @@ def follow_user(user_id: str, following_id: str, db: Session = Depends(get_db)):
 
 
 @user_router.delete("/follow/delete")
-def follow_Delete(user_id: str, following_id: str, db: Session = Depends(get_db)):
-    result = follow_delete(db, user_id, following_id)
+async def follow_Delete(
+    user_id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
+):
+    result = await follow_delete(engine, user_id, following_id)
     user = result["user"]["nickname"]
     f_user = result["f_user"]["nickname"]
     print(f"유저 {user}님이 유저 {f_user}님을 언팔로우 합니다.")
