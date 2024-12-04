@@ -1,3 +1,4 @@
+import uuid
 from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
 from starlette import status
@@ -222,13 +223,15 @@ async def upload_profile_image(
 
     user = await engine.find_one(User, User.id == ObjectId(id))
     if not user:
-        raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
+        raise HTTPException(status_code=404, detail="일치하는 유저 id가 없습니다.")
     # 업로드된 파일 저장 경로 설정
-    upload_directory = "user_profile_images"
+    upload_directory = "profile_images"
     if not os.path.exists(upload_directory):
         os.makedirs(upload_directory)
 
-    file_location = os.path.join(upload_directory, file.filename)
+    file_ext = file.content_type.split('/')[-1]
+
+    file_location = os.path.join(upload_directory, f'{uuid.uuid4()}.{file_ext}')
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -250,7 +253,7 @@ async def get_profile_image(id: str, engine: AIOEngine = Depends(get_engine)):
 
     user = await engine.find_one(User, User.id == ObjectId(id))
     if not user:
-        raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
+        raise HTTPException(status_code=404, detail="일치하는 유저 id가 없습니다.")
 
     # 프로필 이미지 경로 확인
     if not user.profile:
