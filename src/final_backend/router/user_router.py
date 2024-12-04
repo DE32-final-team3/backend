@@ -224,6 +224,11 @@ async def upload_profile_image(
     user = await engine.find_one(User, User.id == ObjectId(id))
     if not user:
         raise HTTPException(status_code=404, detail="일치하는 유저 id가 없습니다.")
+    
+    # 기존 프로필 이미지 삭제
+    if user.profile and os.path.exists(user.profile):
+        os.remove(user.profile)
+
     # 업로드된 파일 저장 경로 설정
     upload_directory = "profile_images"
     if not os.path.exists(upload_directory):
