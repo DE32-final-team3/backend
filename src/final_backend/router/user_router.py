@@ -1,6 +1,5 @@
 from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
 from fastapi.responses import JSONResponse, FileResponse
-from sqlalchemy.orm import Session
 from starlette import status
 from datetime import timedelta, datetime
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -19,6 +18,7 @@ from src.final_backend.user_crud import (
     add_follow,
     follow_delete,
     update_profile,
+    update_user_info,
 )
 from odmantic import AIOEngine
 from src.final_backend.database import DATABASE_URL
@@ -160,7 +160,7 @@ async def current_user(
 
 
 @user_router.put("/update", status_code=status.HTTP_200_OK)
-async def update_user_info(
+async def update_user(
     update_data: UserUpdate,
     current_user: User = Depends(current_user),
     engine: AIOEngine = Depends(get_engine),
@@ -215,13 +215,13 @@ async def reset_password_request(
 
 @user_router.post("/profile/upload", status_code=status.HTTP_200_OK)
 async def upload_profile_image(
-    ID: str = "",
+    id: str = "",
     file: UploadFile = File(...),
     engine: AIOEngine = Depends(get_engine),
 ):
-    user = await engine.find_one(User, User.ID == ID)
+    user = await engine.find_one(User, User.id == id)
     if not user:
-        raise HTTPException(status_code=404, detail="유저 고유 ID가 일치하지 않습니다.")
+        raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
     # 업로드된 파일 저장 경로 설정
     upload_directory = "user_profile_images"
     if not os.path.exists(upload_directory):
@@ -243,11 +243,11 @@ async def upload_profile_image(
 
 
 @user_router.get("/profile/get", status_code=status.HTTP_200_OK)
-async def get_profile_image(ID: str, engine: AIOEngine = Depends(get_engine)):
+async def get_profile_image(id: str, engine: AIOEngine = Depends(get_engine)):
     # engine에서 사용자 조회
-    user = await engine.find_one(User, User.ID == ID)
+    user = await engine.find_one(User, User.id == id)
     if not user:
-        raise HTTPException(status_code=404, detail="유저 고유 ID가 일치하지 않습니다.")
+        raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
 
     # 프로필 이미지 경로 확인
     if not user.profile:
@@ -269,9 +269,9 @@ async def get_profile_image(ID: str, engine: AIOEngine = Depends(get_engine)):
 
 @user_router.post("/follow")
 async def follow_user(
-    user_id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
+    nickname: str, following_nickname: str, engine: AIOEngine = Depends(get_engine)
 ):
-    result = await add_follow(engine, user_id, following_id)
+    result = await add_follow(engine, nickname, following_nickname)
     user = result.get("user")
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 팔로우 합니다.")
@@ -280,10 +280,10 @@ async def follow_user(
 
 @user_router.delete("/follow/delete")
 async def follow_Delete(
-    user_id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
+    nickname: str, following_nickname: str, engine: AIOEngine = Depends(get_engine)
 ):
-    result = await follow_delete(engine, user_id, following_id)
-    user = result["user"]["nickname"]
-    f_user = result["f_user"]["nickname"]
+    result = await follow_delete(engine, nickname, following_nickname)
+    user = result.get("user")
+    f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 언팔로우 합니다.")
     return result
