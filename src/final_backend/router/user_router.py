@@ -20,7 +20,7 @@ from src.final_backend.user_crud import (
     update_profile,
     update_user_info,
 )
-from odmantic import AIOEngine
+from odmantic import AIOEngine, ObjectId
 from src.final_backend.database import DATABASE_URL
 from motor.motor_asyncio import AsyncIOMotorClient
 
@@ -215,11 +215,12 @@ async def reset_password_request(
 
 @user_router.post("/profile/upload", status_code=status.HTTP_200_OK)
 async def upload_profile_image(
-    id: str = "",
+    id: str,
     file: UploadFile = File(...),
     engine: AIOEngine = Depends(get_engine),
 ):
-    user = await engine.find_one(User, User.id == id)
+
+    user = await engine.find_one(User, User.id == ObjectId(id))
     if not user:
         raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
     # 업로드된 파일 저장 경로 설정
@@ -231,21 +232,23 @@ async def upload_profile_image(
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
-    # 파일 경로를 engine에 저장
-    updated_user = await update_profile(engine, user, file_location)
-    if not updated_user:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="프로필 이미지 업데이트에 실패했습니다.",
-        )
+    # 사용자 프로필 이미지 경로 업데이트
+    user.profile = file_location
 
-    return {"message": "프로필 이미지 업로드 완료", "file_path": updated_user.profile}
+    # 사용자 정보 저장
+    await engine.save(user)
+    # if not :
+    #     raise HTTPException(
+    #         status_code=status.HTTP_400_BAD_REQUEST,
+    #         detail="프로필 이미지 업데이트에 실패했습니다.",
+    #     )
+    return {"message": "프로필 이미지 업로드 완료", "file_path": user.profile}
 
 
 @user_router.get("/profile/get", status_code=status.HTTP_200_OK)
 async def get_profile_image(id: str, engine: AIOEngine = Depends(get_engine)):
-    # engine에서 사용자 조회
-    user = await engine.find_one(User, User.id == id)
+
+    user = await engine.find_one(User, User.id == ObjectId(id))
     if not user:
         raise HTTPException(status_code=404, detail="유저 고유 id가 일치하지 않습니다.")
 
@@ -269,9 +272,9 @@ async def get_profile_image(id: str, engine: AIOEngine = Depends(get_engine)):
 
 @user_router.post("/follow")
 async def follow_user(
-    nickname: str, following_nickname: str, engine: AIOEngine = Depends(get_engine)
+    _id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
 ):
-    result = await add_follow(engine, nickname, following_nickname)
+    result = await add_follow(engine, _id, following_id)
     user = result.get("user")
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 팔로우 합니다.")
@@ -280,9 +283,9 @@ async def follow_user(
 
 @user_router.delete("/follow/delete")
 async def follow_Delete(
-    nickname: str, following_nickname: str, engine: AIOEngine = Depends(get_engine)
+    _id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
 ):
-    result = await follow_delete(engine, nickname, following_nickname)
+    result = await follow_delete(engine, _id, following_id)
     user = result.get("user")
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 언팔로우 합니다.")

@@ -1,4 +1,4 @@
-from odmantic import Model
+from odmantic import Model, ObjectId
 from typing import Optional, List
 
 
@@ -9,4 +9,4 @@ class User(Model):
     password: str
     profile: Optional[str] = None
     movie_list: Optional[List[str]] = []
-    following: Optional[List[str]] = []
+    following: Optional[List[ObjectId]] = []

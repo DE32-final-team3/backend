@@ -1,9 +1,8 @@
-from jigutime import jigu
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import string, secrets, os, smtplib
 
-from odmantic import AIOEngine
+from odmantic import AIOEngine, ObjectId
 from src.final_backend.models import User
 from passlib.context import CryptContext
 
@@ -125,27 +124,29 @@ async def update_profile(engine: AIOEngine, user: User, image_path: str):
     return user
 
 
-async def add_follow(engine: AIOEngine, nickname: str, following_nickname: str):
+async def add_follow(engine: AIOEngine, id: str, follow_id: str):
+    userId = ObjectId(id)
+    followingId = ObjectId(follow_id)
     # 현재 사용자를 찾기 위해 nickname으로 조회
-    user = await engine.find_one(User, User.nickname == nickname)
+    user = await engine.find_one(User, User.id == userId)
     if not user:
-        return {"error": "해당 nickname을 가진 사용자를 찾을 수 없습니다."}
+        return {"error": "해당 id를 가진 사용자를 찾을 수 없습니다."}
 
     # 팔로우할 사용자를 찾기 위해 following_nickname으로 조회
-    following_user = await engine.find_one(User, User.nickname == following_nickname)
+    following_user = await engine.find_one(User, User.id == followingId)
     if not following_user:
-        return {"error": "해당 following_nickname을 가진 사용자를 찾을 수 없습니다."}
+        return {"error": "해당 following_id를 가진 사용자를 찾을 수 없습니다."}
 
     # 이미 팔로우하고 있는지 확인
-    if user.following and following_nickname in user.following:
+    if user.following and followingId in user.following:
         return {
-            "message": f"유저 ({user.nickname})가 이미 ({following_user.nickname})를 팔로우 중 입니다."
+            "message": f"유저 {user.nickname}가 이미 {following_user.nickname}를 팔로우 중 입니다."
         }
 
     if user.following:
-        user.following.append(following_nickname)
+        user.following.append(followingId)
     else:
-        user.following = [following_nickname]
+        user.following = [followingId]
     await engine.save(user)
 
     return {
@@ -155,18 +156,23 @@ async def add_follow(engine: AIOEngine, nickname: str, following_nickname: str):
     }
 
 
-async def follow_delete(engine: AIOEngine, nickname: str, following_nickname: str):
-    user = await engine.find_one(User, User.nickname == nickname)
+async def follow_delete(engine: AIOEngine, id: str, follow_id: str):
+    userId = ObjectId(id)
+    followingId = ObjectId(follow_id)
+
+    user = await engine.find_one(User, User.id == userId)
     if not user:
-        return {"error": "해당 nickname을 가진 사용자를 찾을 수 없습니다."}
-    following_user = await engine.find_one(User, User.nickname == following_nickname)
+        return {"error": "해당 id를 가진 사용자를 찾을 수 없습니다."}
+
+    following_user = await engine.find_one(User, User.id == followingId)
     if not following_user:
-        return {"error": "해당 following_nickname을 가진 사용자를 찾을 수 없습니다."}
-    if not user.following or following_nickname not in user.following:
+        return {"error": "해당 following_id를 가진 사용자를 찾을 수 없습니다."}
+
+    if not user.following or followingId not in user.following:
         return {
             "message": f"유저 {user.nickname}가 유저 {following_user.nickname}를 팔로우 중이 아닙니다."
         }
-    user.following.remove(following_nickname)
+    user.following.remove(followingId)
 
     await engine.save(user)
     return {
