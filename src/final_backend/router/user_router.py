@@ -122,7 +122,7 @@ async def login(
     }
 
 
-@user_router.post("/getinfo")
+@user_router.post("/info")
 async def get_user_info(
     token: str = Depends(oauth2_scheme),
     engine: AIOEngine = Depends(get_engine),
@@ -172,7 +172,7 @@ async def update_user(
     }
 
 
-@user_router.post("/reset-password")
+@user_router.post("/password/reset")
 async def reset_password_request(
     email: str, nickname: str, engine: AIOEngine = Depends(get_engine)
 ):
