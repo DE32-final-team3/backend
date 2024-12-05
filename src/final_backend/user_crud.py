@@ -39,6 +39,9 @@ async def verify_password(plain_password: str, hashed_password: str) -> bool:
 async def delete_user(engine: AIOEngine, email: str, password: str):
     user = await engine.find_one(User, User.email == email)
     if user and pwd_context.verify(password, user.password):
+        # 기존 프로필 이미지 삭제
+        if user.profile and os.path.exists(user.profile):
+            os.remove(user.profile)
         await engine.delete(user)
         return {"message": f"유저 '{email}' 삭제 완료."}
     else:
@@ -114,16 +117,6 @@ async def send_reset_email(email: str, content: str):
         return None
 
 
-async def update_profile(engine: AIOEngine, user: User, image_path: str):
-
-    user.profile = image_path
-    # 사용자 정보를 MongoDB에 저장
-    await engine.save(user)
-
-    print("프로필 이미지 저장 완료.")
-    return user
-
-
 async def add_follow(engine: AIOEngine, id: str, follow_id: str):
     userId = ObjectId(id)
     followingId = ObjectId(follow_id)
@@ -156,7 +149,7 @@ async def add_follow(engine: AIOEngine, id: str, follow_id: str):
     }
 
 
-async def follow_delete(engine: AIOEngine, id: str, follow_id: str):
+async def delete_follow(engine: AIOEngine, id: str, follow_id: str):
     userId = ObjectId(id)
     followingId = ObjectId(follow_id)
 

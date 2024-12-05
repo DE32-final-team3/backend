@@ -1,6 +1,6 @@
 import uuid
 from fastapi import APIRouter, HTTPException, Depends, File, UploadFile
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import FileResponse
 from starlette import status
 from datetime import timedelta, datetime
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -16,17 +16,16 @@ from src.final_backend.user_crud import (
     create_user,
     send_reset_email,
     generate_temporary_password,
-    add_follow,
-    follow_delete,
-    update_profile,
     update_user_info,
+    add_follow,
+    delete_follow,
 )
 from odmantic import AIOEngine, ObjectId
 from src.final_backend.database import DATABASE_URL
 from motor.motor_asyncio import AsyncIOMotorClient
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
-user_router = APIRouter(prefix="/api/user", tags=["User"])
+user_router = APIRouter(prefix="/user", tags=["User"])
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -43,10 +42,10 @@ async def get_engine():
     return AIOEngine(client=client, database="cinetalk")
 
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/user/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
 
-@user_router.post("/email", status_code=status.HTTP_200_OK)
+@user_router.post("/check/email", status_code=status.HTTP_200_OK)
 async def emailcheck(email=str, engine: AIOEngine = Depends(get_engine)):
     existing_email = await get_existing_email(engine, email)
     if existing_email:
@@ -54,7 +53,7 @@ async def emailcheck(email=str, engine: AIOEngine = Depends(get_engine)):
     return {"message": "사용 가능한 이메일입니다."}
 
 
-@user_router.post("/nickname", status_code=status.HTTP_200_OK)
+@user_router.post("/check/nickname", status_code=status.HTTP_200_OK)
 async def namecheck(nickname=str, engine: AIOEngine = Depends(get_engine)):
     existing_name = await get_existing_name(engine, nickname)
     if existing_name:
@@ -85,16 +84,6 @@ async def user_delete(
         engine, _user_create.email, _user_create.password
     )
 
-    if delete_result is None:
-        return JSONResponse(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            content={"알림": "유저 비밀번호가 틀립니다."},
-        )
-
-    if "error" in delete_result:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND, detail="페이지를 찾을 수 없습니다."
-        )
     return delete_result
 
 
@@ -133,8 +122,8 @@ async def login(
     }
 
 
-@user_router.post("/validate")
-async def current_user(
+@user_router.post("/getinfo")
+async def get_user_info(
     token: str = Depends(oauth2_scheme),
     engine: AIOEngine = Depends(get_engine),
 ):
@@ -163,7 +152,7 @@ async def current_user(
 @user_router.put("/update", status_code=status.HTTP_200_OK)
 async def update_user(
     update_data: UserUpdate,
-    current_user: User = Depends(current_user),
+    current_user: User = Depends(get_user_info),
     engine: AIOEngine = Depends(get_engine),
 ):
     updated_user = await update_user_info(
@@ -224,19 +213,17 @@ async def upload_profile_image(
     user = await engine.find_one(User, User.id == ObjectId(id))
     if not user:
         raise HTTPException(status_code=404, detail="일치하는 유저 id가 없습니다.")
-    
-    # 기존 프로필 이미지 삭제
+
     if user.profile and os.path.exists(user.profile):
         os.remove(user.profile)
-
     # 업로드된 파일 저장 경로 설정
     upload_directory = "profile_images"
     if not os.path.exists(upload_directory):
         os.makedirs(upload_directory)
 
-    file_ext = file.content_type.split('/')[-1]
+    file_ext = file.content_type.split("/")[-1]
 
-    file_location = os.path.join(upload_directory, f'{uuid.uuid4()}.{file_ext}')
+    file_location = os.path.join(upload_directory, f"{uuid.uuid4()}.{file_ext}")
     with open(file_location, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
@@ -245,11 +232,7 @@ async def upload_profile_image(
 
     # 사용자 정보 저장
     await engine.save(user)
-    # if not :
-    #     raise HTTPException(
-    #         status_code=status.HTTP_400_BAD_REQUEST,
-    #         detail="프로필 이미지 업데이트에 실패했습니다.",
-    #     )
+
     return {"message": "프로필 이미지 업로드 완료", "file_path": user.profile}
 
 
@@ -280,9 +263,9 @@ async def get_profile_image(id: str, engine: AIOEngine = Depends(get_engine)):
 
 @user_router.post("/follow")
 async def follow_user(
-    _id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
+    id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
 ):
-    result = await add_follow(engine, _id, following_id)
+    result = await add_follow(engine, id, following_id)
     user = result.get("user")
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 팔로우 합니다.")
@@ -291,9 +274,9 @@ async def follow_user(
 
 @user_router.delete("/follow/delete")
 async def follow_Delete(
-    _id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
+    id: str, following_id: str, engine: AIOEngine = Depends(get_engine)
 ):
-    result = await follow_delete(engine, _id, following_id)
+    result = await delete_follow(engine, id, following_id)
     user = result.get("user")
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 언팔로우 합니다.")
