@@ -1,6 +1,7 @@
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import string, secrets, os, smtplib
+from typing import List
 
 from odmantic import AIOEngine, ObjectId
 from src.final_backend.models import User
@@ -174,7 +175,7 @@ async def delete_follow(engine: AIOEngine, id: str, follow_id: str):
         "f_user": following_user.nickname,
     }
 
-async def update_movie_list(engine: AIOEngine, user: User, new_movie_list: List[str]):
+async def update_movie_list(engine: AIOEngine, user: User, new_movie_list: List[int]):
     # 기존 영화 목록을 새 목록으로 교체
     user.movie_list = new_movie_list
     # 업데이트된 사용자 객체 저장
