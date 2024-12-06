@@ -8,5 +8,5 @@ class User(Model):
     nickname: str
     password: str
     profile: Optional[str] = None
-    movie_list: Optional[List[str]] = []
+    movie_list: Optional[List[int]] = []
     following: Optional[List[ObjectId]] = []
