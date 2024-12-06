@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List
 
 
 # 사용자 생성 시 필요한 데이터 정의
@@ -19,3 +19,6 @@ class Token(BaseModel):
 class UserUpdate(BaseModel):
     nickname: Optional[str] = None
     password: Optional[str] = None
+
+class UserMovieLists(BaseModel):
+    movie_list: Optional[List[str]] = []

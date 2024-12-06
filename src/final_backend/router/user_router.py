@@ -8,7 +8,7 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 import pytz, os, shutil
 from src.final_backend import user_crud
-from src.final_backend.schema import UserCreate, UserUpdate, Token
+from src.final_backend.schema import UserCreate, UserUpdate, Token, UserMovieLists
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
     get_existing_email,
@@ -19,6 +19,7 @@ from src.final_backend.user_crud import (
     update_user_info,
     add_follow,
     delete_follow,
+    update_movie_list
 )
 from odmantic import AIOEngine, ObjectId
 from src.final_backend.database import DATABASE_URL
@@ -281,3 +282,24 @@ async def follow_Delete(
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 언팔로우 합니다.")
     return result
+
+@user_router.put("/update/movies", status_code=status.HTTP_200_OK)
+async def update_user_movies(
+    movie_data: UserMovieLists,
+    current_user: User = Depends(get_user_info),
+    engine: AIOEngine = Depends(get_engine),
+):
+    updated_user = await update_movie_list(
+        engine,
+        user=current_user,
+        new_movie_list=movie_data.movie_list or [],
+    )
+    if not updated_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="영화 목록 업데이트 실패.",
+        )
+    return {
+        "message": "영화 목록 업데이트 완료",
+        "movie_list": updated_user.movie_list,
+    }
