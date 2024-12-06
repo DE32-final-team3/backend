@@ -21,4 +21,4 @@ class UserUpdate(BaseModel):
     password: Optional[str] = None
 
 class UserMovieLists(BaseModel):
-    movie_list: Optional[List[str]] = []
+    movie_list: Optional[List[int]] = []
