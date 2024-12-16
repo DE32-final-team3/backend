@@ -3,6 +3,7 @@ from starlette.middleware.cors import CORSMiddleware
 from src.final_backend.router import user_router
 from src.final_backend.router.movie_router import movie_router
 from src.final_backend.router.sim_router import sim_router
+from src.final_backend.router.tmdb_router import tmdb_router
 
 app = FastAPI()
 
@@ -20,3 +21,4 @@ app.add_middleware(
 app.include_router(user_router.user_router)
 app.include_router(movie_router)
 app.include_router(sim_router)
+app.include_router(tmdb_router)
