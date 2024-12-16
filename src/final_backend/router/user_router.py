@@ -175,7 +175,7 @@ async def update_user(
 
 @user_router.post("/password/reset")
 async def reset_password_request(
-    email: str, nickname: str, engine: AIOEngine = Depends(get_engine)
+    email: str, engine: AIOEngine = Depends(get_engine)
 ):
     # email만으로 사용자 확인
     user_by_email = await get_existing_email(engine, email)
@@ -184,17 +184,6 @@ async def reset_password_request(
             status_code=404, detail="해당 이메일로 가입된 유저가 없습니다."
         )
 
-    # nickname만으로 사용자 확인
-    user_by_nickname = await get_existing_name(engine, nickname)
-    if not user_by_nickname:
-        raise HTTPException(status_code=404, detail="해당 아이디를 찾을 수 없습니다.")
-
-    # email과 nickname이 일치하는지 확인
-    user = await engine.find_one(User, User.email == email, User.nickname == nickname)
-    if not user:
-        raise HTTPException(
-            status_code=404, detail="아이디와 이메일이 일치하지 않습니다."
-        )
     # 임시 비밀번호 생성
     temporary_password = await generate_temporary_password(engine, user)
     # 이메일로 임시 비밀번호 전송
