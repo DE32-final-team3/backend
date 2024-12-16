@@ -183,7 +183,8 @@ async def reset_password_request(
         raise HTTPException(
             status_code=404, detail="해당 이메일로 가입된 유저가 없습니다."
         )
-
+    
+    user = await engine.find_one(User, User.email == email, User.nickname == nickname)
     # 임시 비밀번호 생성
     temporary_password = await generate_temporary_password(engine, user)
     # 이메일로 임시 비밀번호 전송
