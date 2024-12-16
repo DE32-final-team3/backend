@@ -3,7 +3,7 @@ import httpx
 from typing import List, Optional
 
 # APIRouter 생성
-tmdb_router = APIRouter(prefix="/tmdb", tags=["Front"])
+tmdb_router = APIRouter(prefix="/tmdb", tags=["TMDB"])
 
 # TMDb API Key
 tmdbApiKey = 'c9508eddcf9d0115e9bf51cc56429772'

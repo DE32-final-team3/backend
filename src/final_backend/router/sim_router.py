@@ -13,8 +13,8 @@ USER_COLLECTION = "user"
 sim_router = APIRouter(prefix="/similarity", tags=["Similarity"])
 
 # MongoDB 데이터 가져오기 및 정렬 엔드포인트
-@sim_router.get("/user")
-async def get_sorted_similarity_data(
+@sim_router.get("/list")
+async def get_similar_users(
     index: str = Query(..., description="Target index to sort data"),
     top_n: int = Query(10, description="Number of top results to return")
 ):
@@ -57,7 +57,7 @@ async def get_sorted_similarity_data(
         raise HTTPException(status_code=500, detail="Failed to fetch and sort similarity data.")
 
 
-@sim_router.get("/user-details")
+@sim_router.get("/details")
 async def get_user_details_by_similarity(
     index: str = Query(..., description="Target index to sort data"),
     top_n: int = Query(10, description="Number of top similar users to fetch")
