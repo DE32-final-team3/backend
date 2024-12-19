@@ -1,12 +1,13 @@
 from fastapi import APIRouter, HTTPException, Query
 import httpx
 from typing import List, Optional
+import os
 
 # APIRouter 생성
 tmdb_router = APIRouter(prefix="/tmdb", tags=["TMDB"])
 
 # TMDb API Key
-tmdbApiKey = 'c9508eddcf9d0115e9bf51cc56429772'
+tmdbApiKey = os.getenv("TMDB_KEY")
 
 # TMDb 영화 검색 엔드포인트
 @tmdb_router.get("/search")
