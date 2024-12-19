@@ -22,3 +22,7 @@ app.include_router(user_router.user_router)
 app.include_router(movie_router)
 app.include_router(sim_router)
 app.include_router(tmdb_router)
+
+@app.get("/")
+def read_root():
+    return {"Hello": "World"}
