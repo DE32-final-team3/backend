@@ -175,6 +175,16 @@ async def delete_follow(engine: AIOEngine, id: str, follow_id: str):
         "f_user": following_user.nickname,
     }
 
+
+async def get_user_info_from_follow_id(engine: AIOEngine, follow_id: str):
+    user = await engine.find_one(User, User.id == ObjectId(follow_id))
+    return {
+        "nickname": user.nickname,
+        "profile": user.profile,
+        "movie_list": user.movie_list,
+    }
+
+
 async def update_movie_list(engine: AIOEngine, user: User, new_movie_list: List[int]):
     # 기존 영화 목록을 새 목록으로 교체
     user.movie_list = new_movie_list

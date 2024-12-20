@@ -19,7 +19,8 @@ from src.final_backend.user_crud import (
     update_user_info,
     add_follow,
     delete_follow,
-    update_movie_list
+    update_movie_list,
+    get_user_info_from_follow_id,
 )
 from odmantic import AIOEngine, ObjectId
 from src.final_backend.database import DATABASE_URL
@@ -174,16 +175,14 @@ async def update_user(
 
 
 @user_router.post("/password/reset")
-async def reset_password_request(
-    email: str, engine: AIOEngine = Depends(get_engine)
-):
+async def reset_password_request(email: str, engine: AIOEngine = Depends(get_engine)):
     # email만으로 사용자 확인
     user_by_email = await get_existing_email(engine, email)
     if not user_by_email:
         raise HTTPException(
             status_code=404, detail="해당 이메일로 가입된 유저가 없습니다."
         )
-    
+
     user = await engine.find_one(User, User.email == email)
     # 임시 비밀번호 생성
     temporary_password = await generate_temporary_password(engine, user)
@@ -272,6 +271,14 @@ async def follow_Delete(
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 언팔로우 합니다.")
     return result
+
+
+@user_router.get("/follow/info")
+async def follow_user_getInfo(follow_id: str, engine: AIOEngine = Depends(get_engine)):
+    result = await get_user_info_from_follow_id(engine, follow_id)
+    print(f"유저 정보: {result}")
+    return result
+
 
 @user_router.put("/update/movies", status_code=status.HTTP_200_OK)
 async def update_user_movies(

@@ -1,9 +1,14 @@
 from fastapi import APIRouter, HTTPException, Query, Body
-from src.final_backend.movie_crud import save_movie_to_db, fetch_movies_by_ids, fetch_all_movies
+from src.final_backend.movie_crud import (
+    save_movie_to_db,
+    fetch_movies_by_ids,
+    fetch_all_movies,
+)
 import logging
 
 # APIRouter 생성 시 prefix와 tags 설정
 movie_router = APIRouter(prefix="/movie", tags=["Movie"])
+
 
 # 영화 저장 엔드포인트
 @movie_router.post("/save")
@@ -15,6 +20,7 @@ async def save_movie(movie: dict = Body(...)):
         logging.error(f"Error saving movie with data {movie}: {e}")
         raise HTTPException(status_code=500, detail="Failed to save movie.")
 
+
 # 모든 영화 조회 엔드포인트
 @movie_router.get("/all")
 async def get_all_movies():
@@ -23,6 +29,7 @@ async def get_all_movies():
         return {"movies": movies}
     except Exception:
         raise HTTPException(status_code=500, detail="Failed to fetch movies.")
+
 
 # 영화 ID로 조회 엔드포인트
 @movie_router.get("/list")
