@@ -37,14 +37,15 @@ async def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-async def delete_user(engine: AIOEngine, email: str, password: str):
-    user = await engine.find_one(User, User.email == email)
-    if user and pwd_context.verify(password, user.password):
+async def delete_user(engine: AIOEngine, password: str, user_email: str):
+    user = await engine.find_one(User, User.email == user_email)
+    if user and verify_password(password, user.password):
         # 기존 프로필 이미지 삭제
         if user.profile and os.path.exists(user.profile):
             os.remove(user.profile)
         await engine.delete(user)
-        return {"message": f"유저 '{email}' 삭제 완료."}
+        print(user)
+        return {"message": f"유저 '{user.email}' 삭제 완료."}
     else:
         return {"message": "유저 비밀번호가 틀립니다."}
 

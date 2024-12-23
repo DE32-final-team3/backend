@@ -8,7 +8,13 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 import pytz, os, shutil
 from src.final_backend import user_crud
-from src.final_backend.schema import UserCreate, UserUpdate, Token, UserMovieLists
+from src.final_backend.schema import (
+    UserCreate,
+    UserUpdate,
+    Token,
+    UserMovieLists,
+    PasswordRequest,
+)
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
     get_existing_email,
@@ -25,6 +31,7 @@ from src.final_backend.user_crud import (
 from odmantic import AIOEngine, ObjectId
 from src.final_backend.database import DATABASE_URL
 from motor.motor_asyncio import AsyncIOMotorClient
+from pydantic import BaseModel
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
 user_router = APIRouter(prefix="/user", tags=["User"])
@@ -80,13 +87,33 @@ async def user_create(
 
 @user_router.delete("/delete", status_code=status.HTTP_200_OK)
 async def user_delete(
-    _user_create: UserCreate, engine: AIOEngine = Depends(get_engine)
+    password_request: PasswordRequest,
+    token: str = Depends(oauth2_scheme),
+    engine: AIOEngine = Depends(get_engine),
 ):
-    delete_result = await user_crud.delete_user(
-        engine, _user_create.email, _user_create.password
+    # 토큰 검증
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token 검증 불가",
+        headers={"WWW-Authenticate": "Bearer"},
     )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_email: str = payload.get("sub")
+        if user_email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
 
-    return delete_result
+    # 비밀번호로 유저 삭제
+    try:
+        delete_result = await user_crud.delete_user(
+            engine, user_email=user_email, password=password_request.password
+        )
+        print(password_request)
+        return delete_result
+    except HTTPException as e:
+        raise e
 
 
 @user_router.post("/login", response_model=Token)
