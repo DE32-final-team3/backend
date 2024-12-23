@@ -180,7 +180,6 @@ async def get_user_info_from_follow_id(engine: AIOEngine, follow_id: str):
     user = await engine.find_one(User, User.id == ObjectId(follow_id))
     return {
         "nickname": user.nickname,
-        "profile": user.profile,
         "movie_list": user.movie_list,
     }
 
