@@ -293,3 +293,18 @@ async def update_user_movies(
         "message": "영화 목록 업데이트 완료",
         "movie_list": updated_user.movie_list,
     }
+
+@user_router.get("/get/movies", status_code=status.HTTP_200_OK)
+async def get_user_movies(
+    user_id: str,
+    engine: AIOEngine = Depends(get_engine),
+):
+    user = await engine.find_one(User, User.id == ObjectId(user_id))
+    
+    if not user:
+        raise HTTPException(status_code=404, detail="일치하는 유저를 찾을 수 없습니다.")
+    
+    return {
+        "user_id": user_id,
+        "movie_list": user.movie_list or [], 
+    }

@@ -83,6 +83,8 @@ async def get_user_details_by_similarity(
 
             # 유사도 값 기준으로 내림차순 정렬
             sorted_items = sorted(sortable_items, key=lambda x: x["similarity"], reverse=True)
+            
+            # 상위 N개의 user_id 추출
             user_id_list = [item["user_id"] for item in sorted_items[:top_n]]
 
             # MongoDB에서 user_id 리스트로 상세 데이터 조회
@@ -96,13 +98,17 @@ async def get_user_details_by_similarity(
                     "user_id": str(user["_id"]),
                     "nickname": user.get("nickname", "닉네임 없음"),
                     "email": user.get("email", "이메일 없음"),
-                    "profile": user.get("profile", "프로필 없음")
+                    "profile": user.get("profile", "프로필 없음"),
+                    "similarity": next(
+                        (item["similarity"] for item in sorted_items if item["user_id"] == str(user["_id"])),
+                        None
+                    )  # 정렬된 데이터에서 similarity 추가
                 }
                 for user in users
             ]
 
-            # "similar_users" 키를 제거하고 직접 리스트 반환
-            return user_details
+            # 정렬된 결과 반환
+            return sorted(user_details, key=lambda x: x["similarity"], reverse=True)
 
     except Exception as e:
         logging.error(f"Error fetching user details for index {index}: {e}")
