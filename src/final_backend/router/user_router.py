@@ -17,9 +17,11 @@ from src.final_backend.schema import (
 )
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
+    generate_email_verification_code,
     get_existing_email,
     get_existing_name,
     create_user,
+    send_email_verification,
     send_reset_email,
     generate_temporary_password,
     update_user_info,
@@ -27,11 +29,11 @@ from src.final_backend.user_crud import (
     delete_follow,
     update_movie_list,
     get_user_info_from_follow_id,
+    verify_email_code,
 )
 from odmantic import AIOEngine, ObjectId
 from src.final_backend.database import DATABASE_URL
 from motor.motor_asyncio import AsyncIOMotorClient
-from pydantic import BaseModel
 
 # APIRouter는 여러 엔드포인트를 그룹화하고 관리할 수 있도록 도와주는 객체
 user_router = APIRouter(prefix="/user", tags=["User"])
@@ -47,7 +49,6 @@ ALGORITHM = "HS256"
 # AIOEngine을 FastAPI에서 사용할 수 있도록 설정
 async def get_engine():
     client = AsyncIOMotorClient(DATABASE_URL)
-
     return AIOEngine(client=client, database="cinetalk")
 
 
@@ -59,7 +60,17 @@ async def emailcheck(email=str, engine: AIOEngine = Depends(get_engine)):
     existing_email = await get_existing_email(engine, email)
     if existing_email:
         raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다.")
-    return {"message": "사용 가능한 이메일입니다."}
+
+    # 인증 코드 생성
+    verification_code = await generate_email_verification_code(engine, email)
+
+    await send_email_verification(email, verification_code)
+    return {"message": f"인증번호가 이메일로 전송되었습니다."}
+
+
+@user_router.post("/verify/email", status_code=status.HTTP_200_OK)
+async def verify_email(email: str, code: str, engine: AIOEngine = Depends(get_engine)):
+    return await verify_email_code(engine, email, code)
 
 
 @user_router.post("/check/nickname", status_code=status.HTTP_200_OK)

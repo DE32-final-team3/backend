@@ -1,5 +1,7 @@
-from odmantic import Model, ObjectId
+from odmantic import Model, ObjectId, Index
 from typing import Optional, List
+from datetime import datetime
+
 
 class User(Model):
     email: str
@@ -8,6 +10,7 @@ class User(Model):
     profile: Optional[str] = None
     movie_list: Optional[List[int]] = []
     following: Optional[List[ObjectId]] = []
+
 
 class Movie(Model):
     movie_id: int
@@ -20,3 +23,9 @@ class Movie(Model):
     release_date: Optional[str] = None
     cast: Optional[List[dict]] = None
     director: Optional[dict] = None
+
+
+class EmailVerification(Model):
+    email: str
+    verification_code: str
+    expires_at: datetime

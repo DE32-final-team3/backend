@@ -1,16 +1,21 @@
+from datetime import datetime, timedelta
+from pytz import timezone
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import string, secrets, os, smtplib
 from typing import List
-
+from fastapi import HTTPException
 from odmantic import AIOEngine, ObjectId
-from src.final_backend.models import User
+from src.final_backend.models import User, EmailVerification
 from passlib.context import CryptContext
 
 
 # bcrypt 알고리즘을 사용하여 비밀번호를 암호화
 # pwd_context 객체를 생성하고 pwd_context 객체를 사용하여 비밀번호를 암호화하여 저장
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+KST = timezone("Asia/Seoul")
+current_time = datetime.now(KST)
 
 
 async def create_user(engine: AIOEngine, user_data: dict):
@@ -60,6 +65,49 @@ async def update_user_info(engine: AIOEngine, user: User, updated_data: dict):
     return user
 
 
+async def generate_email_verification_code(engine: AIOEngine, email: str, length=6):
+
+    # 임시 비밀번호 생성
+    characters = string.digits  # 대소문자 + 숫자
+    verificaiton_code = "".join(secrets.choice(characters) for _ in range(length))
+
+    existing_verification = await engine.find_one(
+        EmailVerification, EmailVerification.email == email
+    )
+    if existing_verification:
+        # 기존 데이터가 있으면 삭제
+        await engine.delete(existing_verification)
+
+    expires_at = datetime.utcnow() + timedelta(minutes=5)
+
+    email_verification = EmailVerification(
+        email=email, verification_code=verificaiton_code, expires_at=expires_at
+    )
+    await engine.save(email_verification)
+    return verificaiton_code
+
+
+async def verify_email_code(engine: AIOEngine, email: str, code: str):
+    # MongoDB에서 이메일에 해당하는 인증 데이터 조회
+    email_verification = await engine.find_one(
+        EmailVerification, EmailVerification.email == email
+    )
+    current_time = datetime.utcnow()
+
+    if not email_verification:
+        raise HTTPException(status_code=404, detail="인증 기록이 존재하지 않습니다.")
+
+    # 만료 시간 확인
+    if email_verification.expires_at < current_time:
+        raise HTTPException(status_code=400, detail="인증 코드가 만료되었습니다.")
+
+    # 인증 코드 확인
+    if email_verification.verification_code != code:
+        raise HTTPException(status_code=400, detail="인증 코드가 일치하지 않습니다.")
+
+    return {"message": "인증에 성공했습니다."}
+
+
 async def generate_temporary_password(engine: AIOEngine, user: User, length=8):
 
     # 임시 비밀번호 생성
@@ -76,6 +124,52 @@ SMTP_USER = os.getenv("SMTP_USER")
 SMTP_PASSWORD = os.getenv("SMTP_PASSWORD")
 
 
+async def send_email_verification(email: str, content: str):
+    # SMTP 서버 설정
+    smtp_server = "smtp.gmail.com"
+    smtp_port = 587
+    smtp_user = SMTP_USER
+    smtp_password = SMTP_PASSWORD
+
+    # 이메일 메시지 설정
+    msg = MIMEMultipart()
+    msg["From"] = "Cinemate"
+    msg["To"] = email
+    msg["Subject"] = "Cinemate 회원가입을 위한 이메일 인증"
+
+    body_text = f"Cinemate 회원가입 ."
+    body_html = f"""
+    <html>
+    <head></head>
+    <body>
+      <h2>Cinemate 회원가입을 위한 이메일 인증 안내</h2>
+      <p>안녕하세요</p>
+      <p>Cinemate 이용을 위해 {email}을 계정ID로 등록하셨습니다.</p>
+      <p>회원가입을 위한 인증번호를 확인 후 이메일 인증을 완료하세요.</p>
+      <p>\n</p>
+      <h3><strong>{content}</strong></h3>
+
+    </body>
+    </html>
+    """
+
+    # MIME 타입 설정
+    msg.attach(MIMEText(body_text, "plain"))
+    msg.attach(MIMEText(body_html, "html"))
+
+    try:
+        # SMTP 서버 연결 및 이메일 전송
+        with smtplib.SMTP(smtp_server, smtp_port) as server:
+            server.starttls()
+            server.login(smtp_user, smtp_password)
+            server.sendmail(msg["From"], msg["To"], msg.as_string())
+        print("이메일 전송 성공")
+        return True
+    except Exception as e:
+        print(f"이메일 전송 오류: {e}")
+        return None
+
+
 async def send_reset_email(email: str, content: str):
     # SMTP 서버 설정
     smtp_server = "smtp.gmail.com"
@@ -85,18 +179,21 @@ async def send_reset_email(email: str, content: str):
 
     # 이메일 메시지 설정
     msg = MIMEMultipart()
-    msg["From"] = "Cinetalk"
+    msg["From"] = "Cinemate"
     msg["To"] = email
-    msg["Subject"] = "Cinetalk 임시 비밀번호 발급 안내"
+    msg["Subject"] = "Cinemate 임시 비밀번호 발급 안내"
 
     body_text = f"요청한 임시 비밀번호입니다. 로그인 후 비밀번호를 변경하세요."
     body_html = f"""
     <html>
     <head></head>
     <body>
-      <h3>Cinetalk 임시 비밀번호 발급 안내</h3>
+      <h2>Cinemate 임시 비밀번호 발급 안내</h2>
+      <p>안녕하세요 회원님</p>
       <p>요청한 임시 비밀번호입니다</p>
-      <p><strong>{content}</strong></p>
+      <p>\n</p>
+      <h3><strong>{content}</strong></h3>
+      <p>\n</p>
       <p>반드시 로그인 후 비밀번호를 변경하세요.</p>
     </body>
     </html>
