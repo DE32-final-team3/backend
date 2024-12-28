@@ -52,6 +52,11 @@ async def get_engine():
     return AIOEngine(client=client, database="cinetalk")
 
 
+async def chat_engine():
+    client = AsyncIOMotorClient(DATABASE_URL)
+    return AIOEngine(client=client, database="chat")
+
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
 
 
@@ -101,6 +106,7 @@ async def user_delete(
     password_request: PasswordRequest,
     token: str = Depends(oauth2_scheme),
     engine: AIOEngine = Depends(get_engine),
+    chat_engine: AIOEngine = Depends(chat_engine),
 ):
     # 토큰 검증
     credentials_exception = HTTPException(
@@ -119,7 +125,10 @@ async def user_delete(
     # 비밀번호로 유저 삭제
     try:
         delete_result = await user_crud.delete_user(
-            engine, user_email=user_email, password=password_request.password
+            engine,
+            chat_engine,
+            user_email=user_email,
+            password=password_request.password,
         )
         print(password_request)
         return delete_result

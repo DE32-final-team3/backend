@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from odmantic import AIOEngine, ObjectId
 from src.final_backend.models import User, EmailVerification
 from passlib.context import CryptContext
+from bson import ObjectId
 
 
 # bcrypt 알고리즘을 사용하여 비밀번호를 암호화
@@ -42,14 +43,33 @@ async def verify_password(plain_password: str, hashed_password: str) -> bool:
     return pwd_context.verify(plain_password, hashed_password)
 
 
-async def delete_user(engine: AIOEngine, password: str, user_email: str):
+async def delete_user(
+    engine: AIOEngine, chat_engine: AIOEngine, password: str, user_email: str
+):
     user = await engine.find_one(User, User.email == user_email)
+    user_id = str(user.id)
     if user and verify_password(password, user.password):
-        # 기존 프로필 이미지 삭제
+        # 1. 다른 유저의 `following` 리스트에서 해당 유저 ID 제거
+        users_to_update = await engine.find(User, {"following": {"$in": [user.id]}})
+        if users_to_update:
+            for u in users_to_update:
+                u.following.remove(user.id)
+                await engine.save(u)
+
+        # 4. "chat" 데이터베이스에서 컬렉션 이름에 유저 ID가 포함된 컬렉션 삭제
+        collection_names = (
+            await chat_engine.database.list_collection_names()
+        )  # 모든 컬렉션 이름 가져오기
+        user_related_collections = [
+            name for name in collection_names if user_id in name
+        ]  # 유저 ID 포함 컬렉션 찾기
+        for collection_name in user_related_collections:
+            await chat_engine.database[collection_name].drop()
+
+        # 3. 기존 프로필 이미지 삭제
         if user.profile and os.path.exists(user.profile):
             os.remove(user.profile)
         await engine.delete(user)
-        print(user)
         return {"message": f"유저 '{user.email}' 삭제 완료."}
     else:
         return {"message": "유저 비밀번호가 틀립니다."}
