@@ -20,12 +20,16 @@ current_time = datetime.now(KST)
 
 
 async def create_user(engine: AIOEngine, user_data: dict):
+    default_profile_image = "profile_images/default_profile.jpg"
+    upload_directory = "profile_images"
+    if not os.path.exists(upload_directory):
+        os.makedirs(upload_directory)
     # User 모델을 사용하여 사용자 객체 생성
     user = User(
         email=user_data.email,
         nickname=user_data.nickname,
         password=pwd_context.hash(user_data.password),
-        profile=user_data.profile,
+        profile=default_profile_image,
     )
     await engine.save(user)
     return {"message": f"유저 '{user.nickname}' 생성 완료."}
