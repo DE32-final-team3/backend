@@ -8,18 +8,28 @@ from jose import jwt, JWTError
 from passlib.context import CryptContext
 import pytz, os, shutil
 from src.final_backend import user_crud
-from src.final_backend.schema import UserCreate, UserUpdate, Token, UserMovieLists
+from src.final_backend.schema import (
+    UserCreate,
+    UserUpdate,
+    Token,
+    UserMovieLists,
+    PasswordRequest,
+)
 from src.final_backend.models import User
 from src.final_backend.user_crud import (
+    generate_email_verification_code,
     get_existing_email,
     get_existing_name,
     create_user,
+    send_email_verification,
     send_reset_email,
     generate_temporary_password,
     update_user_info,
     add_follow,
     delete_follow,
-    update_movie_list
+    update_movie_list,
+    get_user_info_from_follow_id,
+    verify_email_code,
 )
 from odmantic import AIOEngine, ObjectId
 from src.final_backend.database import DATABASE_URL
@@ -39,8 +49,12 @@ ALGORITHM = "HS256"
 # AIOEngine을 FastAPI에서 사용할 수 있도록 설정
 async def get_engine():
     client = AsyncIOMotorClient(DATABASE_URL)
-
     return AIOEngine(client=client, database="cinetalk")
+
+
+async def chat_engine():
+    client = AsyncIOMotorClient(DATABASE_URL)
+    return AIOEngine(client=client, database="chat")
 
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/user/login")
@@ -51,7 +65,17 @@ async def emailcheck(email=str, engine: AIOEngine = Depends(get_engine)):
     existing_email = await get_existing_email(engine, email)
     if existing_email:
         raise HTTPException(status_code=409, detail="이미 사용 중인 이메일입니다.")
-    return {"message": "사용 가능한 이메일입니다."}
+
+    # 인증 코드 생성
+    verification_code = await generate_email_verification_code(engine, email)
+
+    await send_email_verification(email, verification_code)
+    return {"message": f"인증번호가 이메일로 전송되었습니다."}
+
+
+@user_router.post("/verify/email", status_code=status.HTTP_200_OK)
+async def verify_email(email: str, code: str, engine: AIOEngine = Depends(get_engine)):
+    return await verify_email_code(engine, email, code)
 
 
 @user_router.post("/check/nickname", status_code=status.HTTP_200_OK)
@@ -79,13 +103,37 @@ async def user_create(
 
 @user_router.delete("/delete", status_code=status.HTTP_200_OK)
 async def user_delete(
-    _user_create: UserCreate, engine: AIOEngine = Depends(get_engine)
+    password_request: PasswordRequest,
+    token: str = Depends(oauth2_scheme),
+    engine: AIOEngine = Depends(get_engine),
+    chat_engine: AIOEngine = Depends(chat_engine),
 ):
-    delete_result = await user_crud.delete_user(
-        engine, _user_create.email, _user_create.password
+    # 토큰 검증
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token 검증 불가",
+        headers={"WWW-Authenticate": "Bearer"},
     )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        user_email: str = payload.get("sub")
+        if user_email is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
 
-    return delete_result
+    # 비밀번호로 유저 삭제
+    try:
+        delete_result = await user_crud.delete_user(
+            engine,
+            chat_engine,
+            user_email=user_email,
+            password=password_request.password,
+        )
+        print(password_request)
+        return delete_result
+    except HTTPException as e:
+        raise e
 
 
 @user_router.post("/login", response_model=Token)
@@ -174,16 +222,14 @@ async def update_user(
 
 
 @user_router.post("/password/reset")
-async def reset_password_request(
-    email: str, engine: AIOEngine = Depends(get_engine)
-):
+async def reset_password_request(email: str, engine: AIOEngine = Depends(get_engine)):
     # email만으로 사용자 확인
     user_by_email = await get_existing_email(engine, email)
     if not user_by_email:
         raise HTTPException(
             status_code=404, detail="해당 이메일로 가입된 유저가 없습니다."
         )
-    
+
     user = await engine.find_one(User, User.email == email)
     # 임시 비밀번호 생성
     temporary_password = await generate_temporary_password(engine, user)
@@ -272,6 +318,14 @@ async def follow_Delete(
     f_user = result.get("f_user")
     print(f"유저 {user}님이 유저 {f_user}님을 언팔로우 합니다.")
     return result
+
+
+@user_router.get("/follow/info")
+async def follow_user_getInfo(follow_id: str, engine: AIOEngine = Depends(get_engine)):
+    result = await get_user_info_from_follow_id(engine, follow_id)
+    print(f"유저 정보: {result}")
+    return result
+
 
 @user_router.put("/update/movies", status_code=status.HTTP_200_OK)
 async def update_user_movies(
