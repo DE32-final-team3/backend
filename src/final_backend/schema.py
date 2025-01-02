@@ -1,12 +1,12 @@
 from pydantic import BaseModel, EmailStr
-from pydantic_core.core_schema import FieldValidationInfo
+from typing import Optional, List
 
 
 # 사용자 생성 시 필요한 데이터 정의
 class UserCreate(BaseModel):
-    ID: str
     email: EmailStr
     nickname: str
+    profile: str
     password: str
 
 
@@ -17,5 +17,13 @@ class Token(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    nickname: str = None
-    password: str = None
+    nickname: Optional[str] = None
+    password: Optional[str] = None
+
+
+class UserMovieLists(BaseModel):
+    movie_list: Optional[List[int]] = []
+
+
+class PasswordRequest(BaseModel):
+    password: str

@@ -1,16 +1,31 @@
-from src.final_backend.database import Base
-from sqlalchemy import Column, String, DateTime
-from jigutime import jigu
-import uuid
+from odmantic import Model, ObjectId, Index
+from typing import Optional, List
+from datetime import datetime
 
 
-# Base를 상속받아 User 클래스 생성
-class User(Base):
-    __tablename__ = "user"
-    ID = Column(
-        String(36), primary_key=True, default=lambda: str(uuid.uuid4()), nullable=False
-    )
-    email = Column(String(50), unique=True, nullable=False, index=True)
-    nickname = Column(String(16), unique=True, nullable=False, index=True)
-    password = Column(String(100), nullable=False)
-    create_at = Column(DateTime(timezone=True), default=jigu.now())
+class User(Model):
+    email: str
+    nickname: str
+    password: str
+    profile: Optional[str] = None
+    movie_list: Optional[List[int]] = []
+    following: Optional[List[ObjectId]] = []
+
+
+class Movie(Model):
+    movie_id: int
+    title: str
+    original_title: Optional[str] = None
+    overview: Optional[str] = None
+    poster_path: Optional[str] = None
+    original_language: Optional[str] = None
+    genres: List[int] = []
+    release_date: Optional[str] = None
+    cast: Optional[List[dict]] = None
+    director: Optional[dict] = None
+
+
+class EmailVerification(Model):
+    email: str
+    verification_code: str
+    expires_at: datetime

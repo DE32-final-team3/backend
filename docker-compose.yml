@@ -6,3 +6,8 @@ services:
     container_name: fastapi
     ports:
       - "8000:8000"
+    environment:
+      # Doppler Token 환경 변수 설정
+      DOPPLER_TOKEN: ${DOPPLER_TOKEN}
+    volumes:
+      - /home/ubuntu/profile_images:/app/profile_images
