@@ -20,12 +20,20 @@ async def get_similar_users(
 ):
     
     # collection_name = f"{datetime.now().strftime('%Y%m%d')}_similarity"
-    collection_name = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
+    # collection_name = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
+    today = f"{datetime.now().strftime('%Y%m%d')}_similarity"
+    yesterday = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
 
     try:
         with MongoClient(MONGO_URI) as client:
             db = client[DB_NAME]
-            collection = db[collection_name]
+
+            if today in db.list_collection_names():
+                collection = db[today]
+            elif yesterday in db.list_collection_names():
+                collection = db[yesterday]
+            else:
+                raise HTTPException(status_code=404, detail="No similarity data")
 
             # 컬렉션 전체 데이터 가져오기
             all_docs = list(collection.find({}))
