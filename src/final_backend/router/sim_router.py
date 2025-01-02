@@ -19,8 +19,6 @@ async def get_similar_users(
     top_n: int = Query(10, description="Number of top results to return")
 ):
     
-    # collection_name = f"{datetime.now().strftime('%Y%m%d')}_similarity"
-    # collection_name = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
     today = f"{datetime.now().strftime('%Y%m%d')}_similarity"
     yesterday = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
 
@@ -70,12 +68,19 @@ async def get_user_details_by_similarity(
     index: str = Query(..., description="Target index to sort data"),
     top_n: int = Query(10, description="Number of top similar users to fetch")
 ):
-    collection_name = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
-
+    today = f"{datetime.now().strftime('%Y%m%d')}_similarity"
+    yesterday = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
+    
     try:
         with MongoClient(MONGO_URI) as client:
             db = client[DB_NAME]
-            similarity_collection = db[collection_name]
+
+            if today in db.list_collection_names():
+                similarity_collection = db[today]
+            elif yesterday in db.list_collection_names():
+                similarity_collection = db[yesterday]
+            else:
+                raise HTTPException(status_code=404, detail="No similarity data")
 
             # 기준 index 데이터 검색
             target_doc = similarity_collection.find_one({"index": index})
