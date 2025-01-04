@@ -13,60 +13,59 @@ USER_COLLECTION = "user"
 sim_router = APIRouter(prefix="/similarity", tags=["Similarity"])
 
 # MongoDB 데이터 가져오기 및 정렬 엔드포인트
-@sim_router.get("/list")
-async def get_similar_users(
-    index: str = Query(..., description="Target index to sort data"),
-    top_n: int = Query(10, description="Number of top results to return")
-):
+# @sim_router.get("/list")
+# async def get_similar_users(
+#     index: str = Query(..., description="Target index to sort data"),
+#     top_n: int = Query(10, description="Number of top results to return")
+# ):
     
-    today = f"{datetime.now().strftime('%Y%m%d')}_similarity"
-    yesterday = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
+#     today = f"{datetime.now().strftime('%Y%m%d')}_similarity"
+#     yesterday = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
 
-    try:
-        with MongoClient(MONGO_URI) as client:
-            db = client[DB_NAME]
+#     try:
+#         with MongoClient(MONGO_URI) as client:
+#             db = client[DB_NAME]
 
-            if today in db.list_collection_names():
-                collection = db[today]
-            elif yesterday in db.list_collection_names():
-                collection = db[yesterday]
-            else:
-                raise HTTPException(status_code=404, detail="No similarity data")
+#             if today in db.list_collection_names():
+#                 collection = db[today]
+#             elif yesterday in db.list_collection_names():
+#                 collection = db[yesterday]
+#             else:
+#                 raise HTTPException(status_code=404, detail="No similarity data")
 
-            # 컬렉션 전체 데이터 가져오기
-            all_docs = list(collection.find({}))
+#             # 컬렉션 전체 데이터 가져오기
+#             all_docs = list(collection.find({}))
 
-            # ObjectId를 문자열로 변환
-            for doc in all_docs:
-                doc["_id"] = str(doc["_id"])
+#             # ObjectId를 문자열로 변환
+#             for doc in all_docs:
+#                 doc["_id"] = str(doc["_id"])
 
-            # 기준 index 데이터 검색
-            target_doc = next((doc for doc in all_docs if doc.get("index") == index), None)
-            if not target_doc:
-                raise HTTPException(status_code=404, detail=f"Index {index} not found in similarity data.")
+#             # 기준 index 데이터 검색
+#             target_doc = next((doc for doc in all_docs if doc.get("index") == index), None)
+#             if not target_doc:
+#                 raise HTTPException(status_code=404, detail=f"Index {index} not found in similarity data.")
 
-            # 정렬 가능한 데이터만 필터링 (자기 자신 및 동일한 ID 제외)
-            sortable_items = [
-                {"user_id": key, "similarity": value}
-                for key, value in target_doc.items()
-                if key not in ["_id", "index"] and key != index and isinstance(value, (int, float))
-            ]
+#             # 정렬 가능한 데이터만 필터링 (자기 자신 및 동일한 ID 제외)
+#             sortable_items = [
+#                 {"user_id": key, "similarity": value}
+#                 for key, value in target_doc.items()
+#                 if key not in ["_id", "index"] and key != index and isinstance(value, (int, float))
+#             ]
 
-            # 유사도 값 기준으로 내림차순 정렬
-            sorted_items = sorted(sortable_items, key=lambda x: x["similarity"], reverse=True)
+#             # 유사도 값 기준으로 내림차순 정렬
+#             sorted_items = sorted(sortable_items, key=lambda x: x["similarity"], reverse=True)
 
-            # 상위 N개의 결과만 반환
-            return sorted_items[:top_n]
+#             # 상위 N개의 결과만 반환
+#             return sorted_items[:top_n]
 
-    except Exception as e:
-        logging.error(f"Error fetching and sorting data for index {index}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to fetch and sort similarity data.")
+#     except Exception as e:
+#         logging.error(f"Error fetching and sorting data for index {index}: {e}")
+#         raise HTTPException(status_code=500, detail="Failed to fetch and sort similarity data.")
 
 
 @sim_router.get("/details")
 async def get_user_details_by_similarity(
-    index: str = Query(..., description="Target index to sort data"),
-    top_n: int = Query(10, description="Number of top similar users to fetch")
+    index: str = Query(..., description="Target index to sort data")
 ):
     today = f"{datetime.now().strftime('%Y%m%d')}_similarity"
     yesterday = f"{(datetime.now() - timedelta(days=1)).strftime('%Y%m%d')}_similarity"
@@ -98,7 +97,7 @@ async def get_user_details_by_similarity(
             sorted_items = sorted(sortable_items, key=lambda x: x["similarity"], reverse=True)
             
             # 상위 N개의 user_id 추출
-            user_id_list = [item["user_id"] for item in sorted_items[:top_n]]
+            user_id_list = [item["user_id"] for item in sorted_items]
 
             # MongoDB에서 user_id 리스트로 상세 데이터 조회
             user_object_ids = [ObjectId(user_id) for user_id in user_id_list]
