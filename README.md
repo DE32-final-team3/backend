@@ -59,9 +59,24 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 3. 영화 ID로 조회<br>
     `GET /movie/list`
 
-    - 쿼리 매개변수: movie_ids (list[int], 필수): 조회할 영화 ID 목록.
+    - 쿼리 매개변수: movie_ids (list[int], 필수) 조회할 영화 ID 목록.
     - 예시: `/movie/list?movie_ids=1&movie_ids=2`
 
 ### Similarity 
+**MongoDB 설정**
+
+- MongoDB URI: `mongodb://root:cine@3.37.94.149:27017/?authSource=admin`
+- 데이터베이스 이름: cinetalk
+- 사용자 컬렉션: user
+
+1. 유사도 기반 사용자 정보 조회<br>
+    `GET /similarity/details`
+
+    - 쿼리 매개변수: index (str, 필수): 데이터를 정렬할 대상 인덱스.
+    - 설명: 
+        - 유사도 데이터 필터링 및 정렬_id 및 자기 자신(index) 데이터를 제외한 나머지 데이터를 대상으로 필터링.
+        - 유사도 값을 기준으로 내림차순 정렬.
+        - 사용자 세부 정보 조회
+        - 상위 유사도 사용자 ID를 기반으로 user 컬렉션에서 사용자 정보를 추출
 
 ### TMDB 
