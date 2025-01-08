@@ -41,9 +41,7 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 
 ## 2. API 엔드포인트
 ### User
-1. 회원가입 기능 
-2. 회원삭제 기능 : username을 이용하여 삭제
-                  (추후 변경 필요)
+
 
 ### Movie 
 1. 영화 저장<br>
@@ -59,7 +57,8 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 3. 영화 ID로 조회<br>
     `GET /movie/list`
 
-    - 쿼리 매개변수: movie_ids (list[int], 필수) 조회할 영화 ID 목록.
+    - 쿼리 매개변수:   
+        - `movie_ids` (list[int]): 조회할 영화 ID 목록.
     - 예시: `/movie/list?movie_ids=1&movie_ids=2`
 
 ### Similarity 
@@ -72,7 +71,8 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 1. 유사도 기반 사용자 정보 조회<br>
     `GET /similarity/details`
 
-    - 쿼리 매개변수: index (str, 필수): 데이터를 정렬할 대상 인덱스.
+    - 쿼리 매개변수: 
+        - `index` (str, 필수): 데이터를 정렬할 대상 인덱스.
     - 설명: 
         - 유사도 데이터 필터링 및 정렬_id 및 자기 자신(index) 데이터를 제외한 나머지 데이터를 대상으로 필터링.
         - 유사도 값을 기준으로 내림차순 정렬.
@@ -80,3 +80,16 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
         - 상위 유사도 사용자 ID를 기반으로 user 컬렉션에서 사용자 정보를 추출
 
 ### TMDB 
+1. 영화 검색<br>
+    `GET /tmdb/search`
+
+    - 쿼리 매개변수:
+        - `q` (str): 검색할 영화 제목.
+        - `limit` (int, 기본값: 10): 반환할 영화의 최대 개수.
+        - `page` (int, 기본값: 1): TMDB 검색 API에서 요청할 페이지 번호.
+
+2. 영화 ID로 트레일러 반환<br>
+    `GET /tmdb/{movieId}/videos`
+    
+    - 경로 매개변수:
+        - movieId (int): 영화 ID.
