@@ -43,7 +43,7 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 ### User
 **MongoDB 설정**
 
-- MongoDB URI: `mongodb://root:cine@<MongoDB-server-IP>:27017/?authSource=admin`
+- MongoDB URI: `mongodb://root:cine@3.37.94.149:27017/?authSource=admin`
 - 데이터베이스 이름: cinetalk
 - 사용자 컬렉션: user
 
@@ -51,7 +51,7 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
    `POST /user/check/email`
 
     - 쿼리 매개변수:
-      - `email`: 조회할 email
+      - `email`(str, 이메일형식): 조회할 email
     - 설명: 데이터베이스에 중복되는 email이 있는지 확인 후
             입력한 email에 회원가입을 위한 인증코드 발송
 
@@ -59,21 +59,21 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
     `POST /user/verify/email`
 
     - 쿼리 매개변수:
-      - `code`: 6자리 인증코드
+      - `code`(int): 6자리 인증코드
     - 설명: 회원가입하려는 email에 전송된 인증코드 검증
 
 3. 닉네임 확인<br>
     `POST /user/check/nickname`
 
     - 쿼리 매개변수:
-      - `nickname`: 사용하려는 닉네임
+      - `nickname`(str): 사용하려는 닉네임
     - 설명: 닉네임 중복확인
   
 4. 유저 생성(회원가입)<br>
     `POST /user/create`
 
       - Request body
-        - `email`(str): 이메일형식,<br>
+        - `email`(str, 이메일형식): 이메일,<br>
           `nickname`(str): 닉네임,<br>
           `profile`(str): 프로필사진경로,<br>
           `password`(str): 비밀번호(hash처리)<br>
@@ -99,13 +99,74 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 
      - 설명: jwt token을 검증하여 로그인한 유저의 정보를 유지
 
+8. 유저 정보 변경 <br>
+    `PUT /user/update`
 
+    - Request body
+      - `nickname`(str): 닉네임,<br>
+        `password`(str): 비밀번호(hash처리)
 
+     - 설명: 데이터베이스의 유저 닉네임 및 비밀번호 변경
+  
+9. 유저 비밀번호 찾기<br>
+    `POST /user/password/reset`
 
+    - 쿼리 매개변수:
+      - `email`(str, 이메일형식): 이메일
+    - 설명: 이메일로 유저 정보 확인 후 해당 이메일로 8자리 대소문자로 이루어진 임시 비밀번호 전송
 
+10. 프로필 업로드<br>
+    `POST /user/profile/upload`
 
+    - 쿼리 매개변수:
+      - `id`(str): Mongodb Object_id
+    - Request body:
+      - `file`($binary): 사진 파일
+    - 설명: Object_id에 해당하는 유저 collection에 사진 파일을 업로드(기존 업로드된 파일은 삭제)
 
+11. 프로필 가져오기<br>
+    `GET /user/profile/get`
 
+    - 쿼리 매개변수:
+      - `id`(str): Mongodb Object_id
+    - 설명: Object_id에 해당하는 유저 collection에서 사진 파일 조회
+   
+12. 팔로우 추가<br>
+    `POST /user/follow`
+
+    - 쿼리 매개변수:
+      - `id`(str): 유저 Mongodb Object_id
+      - `following_id`(str): 팔로우 하려는 Mongodb Object_id
+    - 설명: `following_id`를 `id` 유저의 following field에 추가
+
+13. 팔로우 삭제<br>
+    `DELETE /user/follow/delete`
+
+    - 쿼리 매개변수:
+      - `id`(str): 유저 Mongodb Object_id
+      - `following_id`(str): 팔로우 삭제 하려는 Mongodb Object_id
+    - 설명: `following_id`를 `id` 유저의 following field에서 삭제
+
+14. 팔로우 유저 정보 조회<br>
+    `GET /user/follow/info`
+    
+    - 쿼리 매개변수:
+      - `following_id`(str): 조회하려는 유저의 Mongodb Object_id
+    - 설명: `following_id`에 해당하는 유저 정보 조회
+
+15. 영화 목록 업데이트<br>
+    `PUT /user/update/movies`
+
+    - Request body:
+      - `movie_list`(int): 영화id
+    - 설명: 영화id를 업데이트
+      
+16. 영화 목록 조회<br>
+    `GET /user/get/movies`
+
+    - 쿼리 매개변수:
+      - `user_id`(str): 유저 Object_id
+    - 설명: 유저 영화list를 조회
 
 ### Movie 
 1. 영화 저장<br>
