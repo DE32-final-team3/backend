@@ -43,7 +43,7 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 ### User
 **MongoDB 설정**
 
-- MongoDB URI: `mongodb://root:cine@3.37.94.149:27017/?authSource=admin`
+- MongoDB URI: `mongodb://root:cine@<MongoDB-server-IP>:27017/?authSource=admin`
 - 데이터베이스 이름: cinetalk
 - 사용자 컬렉션: user
 
@@ -128,7 +128,7 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 ### Similarity 
 **MongoDB 설정**
 
-- MongoDB URI: `mongodb://root:cine@3.37.94.149:27017/?authSource=admin`
+- MongoDB URI: `mongodb://root:cine@<MongoDB-server-IP>:27017/?authSource=admin`
 - 데이터베이스 이름: cinetalk
 - 사용자 컬렉션: user
 
