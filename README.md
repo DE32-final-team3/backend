@@ -41,6 +41,70 @@ CMD ["doppler", "run", "--", "uvicorn", "src.final_backend.main:app", "--host", 
 
 ## 2. API 엔드포인트
 ### User
+**MongoDB 설정**
+
+- MongoDB URI: `mongodb://root:cine@3.37.94.149:27017/?authSource=admin`
+- 데이터베이스 이름: cinetalk
+- 사용자 컬렉션: user
+
+1. 이메일 확인<br>
+   `POST /user/check/email`
+
+    - 쿼리 매개변수:
+      - `email`: 조회할 email
+    - 설명: 데이터베이스에 중복되는 email이 있는지 확인 후
+            입력한 email에 회원가입을 위한 인증코드 발송
+
+2. 이메일 인증<br>
+    `POST /user/verify/email`
+
+    - 쿼리 매개변수:
+      - `code`: 6자리 인증코드
+    - 설명: 회원가입하려는 email에 전송된 인증코드 검증
+
+3. 닉네임 확인<br>
+    `POST /user/check/nickname`
+
+    - 쿼리 매개변수:
+      - `nickname`: 사용하려는 닉네임
+    - 설명: 닉네임 중복확인
+  
+4. 유저 생성(회원가입)<br>
+    `POST /user/create`
+
+      - Request body
+        - `email`(str): 이메일형식,<br>
+          `nickname`(str): 닉네임,<br>
+          `profile`(str): 프로필사진경로,<br>
+          `password`(str): 비밀번호(hash처리)<br>
+      - 설명: 이메일, 닉네임, 비밀번호 입력하여 유저 정보를 데이터베이스에 생성
+
+5. 유저 삭제(회원탈퇴)<br>
+    `DELETE /user/delete`
+
+    - Request body
+      - `password`(str): 비밀번호(hash처리)
+    - 설명: jwt token 검증 후 입력한 비밀번호가 유저 정보와 일치 시 데이터베이스의 유저 정보 삭제
+  
+6. 로그인<br>
+    `POST /user/login`
+
+      - Request body
+        - `username`(str): 이메일형식,<br>
+          `password`(str): 비밀번호(hash처리)
+      - 설명: 이메일, 비밀번호 일치 여부 확인 후 jwt token 생성하여 로그인
+
+7. 유저 정보 <br>
+    `POST /user/info`
+
+     - 설명: jwt token을 검증하여 로그인한 유저의 정보를 유지
+
+
+
+
+
+
+
 
 
 ### Movie 
