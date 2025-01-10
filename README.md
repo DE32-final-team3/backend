@@ -1,4 +1,5 @@
-# Backend
+# 🎞️ CINEMATE Backend server
+
 ## 1. 설치 방법
 ```
 docker compose up --build -d
